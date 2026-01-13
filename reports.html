@@ -1,0 +1,337 @@
+<div class="report-container">
+  <!-- Report Type Selector -->
+  <div class="report-selector">
+    <select id="reportType" onchange="changeReportType()">
+      <option value="revenue">📊 Báo cáo doanh thu</option>
+      <option value="payment">💰 Báo cáo thanh toán</option>
+      <option value="customer">👥 Báo cáo khách hàng</option>
+      <option value="partner">🤝 Báo cáo Partner</option>
+    </select>
+  </div>
+
+  <!-- Revenue Report -->
+  <div id="revenueReport" class="report-section active">
+    <div class="period-tabs">
+      <button class="period-btn active" onclick="loadRevenueReport('week', this)">Tuần</button>
+      <button class="period-btn" onclick="loadRevenueReport('month', this)">Tháng</button>
+      <button class="period-btn" onclick="loadRevenueReport('all', this)">Tất cả</button>
+    </div>
+    
+    <div id="revenueStats" class="report-stats">
+      <div class="loading">Đang tải...</div>
+    </div>
+    
+    <div id="revenueByType" class="report-chart"></div>
+    
+    <div id="revenueJobsList" class="report-list"></div>
+  </div>
+
+  <!-- Payment Report -->
+  <div id="paymentReport" class="report-section">
+    <div class="form-row" style="margin-bottom: 16px;">
+      <div class="form-group" style="margin-bottom: 0;">
+        <select id="paymentStatusFilter" onchange="loadPaymentReport()">
+          <option value="all">Tất cả</option>
+          <option value="unpaid">Chưa TT</option>
+          <option value="partial">TT một phần</option>
+          <option value="paid">Đã TT hết</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin-bottom: 0;">
+        <select id="paymentPeriodFilter" onchange="loadPaymentReport()">
+          <option value="week">Tuần này</option>
+          <option value="month">Tháng này</option>
+          <option value="all">Tất cả</option>
+        </select>
+      </div>
+    </div>
+    
+    <div id="paymentStats" class="report-stats">
+      <div class="loading">Đang tải...</div>
+    </div>
+    
+    <div id="paymentJobsList" class="report-list"></div>
+  </div>
+
+  <!-- Customer Report -->
+  <div id="customerReport" class="report-section">
+    <div class="form-group" style="margin-bottom: 16px;">
+      <select id="customerReportSelect" onchange="loadCustomerReport()">
+        <option value="">📊 Top khách hàng</option>
+      </select>
+    </div>
+    
+    <div id="customerStats" class="report-stats">
+      <div class="loading">Đang tải...</div>
+    </div>
+    
+    <div id="customerJobsList" class="report-list"></div>
+  </div>
+
+  <!-- Partner Report -->
+  <div id="partnerReport" class="report-section">
+    <div class="form-group" style="margin-bottom: 16px;">
+      <select id="partnerReportSelect" onchange="loadPartnerReport()">
+        <option value="">📊 Tất cả Partners</option>
+      </select>
+    </div>
+    
+    <div id="partnerStats" class="report-stats">
+      <div class="loading">Đang tải...</div>
+    </div>
+    
+    <div id="partnerJobsList" class="report-list"></div>
+  </div>
+</div>
+
+<style>
+.report-container {
+  background: var(--bg-primary);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+}
+
+.report-selector {
+  padding: 16px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.report-selector select {
+  width: 100%;
+  padding: 14px 16px;
+  border: 2px solid var(--primary);
+  border-radius: var(--radius-md);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--primary);
+  background: var(--bg-primary);
+  cursor: pointer;
+}
+
+.report-section {
+  display: none;
+  padding: 16px;
+}
+
+.report-section.active {
+  display: block;
+}
+
+.report-stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.report-stat-card {
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  text-align: center;
+}
+
+.report-stat-card .value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  word-break: break-word;
+}
+
+.report-stat-card .label {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+.report-stat-card.highlight {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+}
+
+.report-stat-card.highlight .value,
+.report-stat-card.highlight .label {
+  color: white;
+}
+
+.report-chart {
+  margin-bottom: 20px;
+}
+
+.report-chart h4 {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+
+.chart-bar {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+  gap: 10px;
+}
+
+.chart-bar .label {
+  width: 70px;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.chart-bar .bar-wrapper {
+  flex: 1;
+  height: 28px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.chart-bar .bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary), var(--primary-light));
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 8px;
+  min-width: 50px;
+  transition: width 0.5s ease;
+}
+
+.chart-bar .bar span {
+  font-size: 0.6875rem;
+  color: white;
+  font-weight: 600;
+}
+
+.report-list {
+  border-top: 1px solid var(--border-color);
+  padding-top: 16px;
+}
+
+.report-list h4 {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+
+.report-job-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.report-job-item:last-child {
+  border-bottom: none;
+}
+
+.report-job-item .info {
+  flex: 1;
+  min-width: 0;
+}
+
+.report-job-item .info .name {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.report-job-item .info .date {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.report-job-item .amount {
+  font-weight: 600;
+  color: var(--primary);
+  margin-left: 12px;
+  flex-shrink: 0;
+}
+
+.report-job-item .debt {
+  color: var(--danger);
+}
+
+.top-customer-item {
+  display: flex;
+  align-items: center;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border-color);
+  gap: 12px;
+}
+
+.top-customer-item:last-child {
+  border-bottom: none;
+}
+
+.top-customer-item .rank {
+  width: 32px;
+  height: 32px;
+  background: var(--primary);
+  color: white;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.875rem;
+  flex-shrink: 0;
+}
+
+.top-customer-item .rank.gold { background: linear-gradient(135deg, #fbbf24, #f59e0b); }
+.top-customer-item .rank.silver { background: linear-gradient(135deg, #9ca3af, #6b7280); }
+.top-customer-item .rank.bronze { background: linear-gradient(135deg, #d97706, #b45309); }
+
+.top-customer-item .info {
+  flex: 1;
+  min-width: 0;
+}
+
+.top-customer-item .info .name {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.top-customer-item .info .jobs {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.top-customer-item .total {
+  font-weight: 700;
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+.report-filters {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.filter-group {
+  flex: 1;
+}
+
+.filter-group label {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.filter-group select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  background: var(--bg-primary);
+}
+</style>

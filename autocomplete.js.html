@@ -1,0 +1,646 @@
+<script>
+// Autocomplete functionality
+let autocompleteTimeout;
+let pendingJobData = null; // Lưu tạm data job khi đang thêm customer/partner
+let lastSelectedCustomerName = '';
+let lastSelectedPartnerName = '';
+
+// Lưu trữ kết quả search để dùng khi select
+let cachedCustomers = [];
+let cachedPartners = [];
+let cachedLocations = [];
+
+// Preload data khi mở form
+let preloadedCustomers = [];
+let preloadedPartners = [];
+
+// Preload customers và partners khi app load
+function preloadAutocompleteData() {
+  if (!spreadsheetId) return;
+  
+  // Load customers
+  google.script.run
+    .withSuccessHandler(function(customers) {
+      preloadedCustomers = customers || [];
+      cachedCustomers = preloadedCustomers;
+    })
+    .withFailureHandler(function(error) {
+      console.error('Preload customers error:', error);
+    })
+    .getAllCustomers(spreadsheetId);
+  
+  // Load partners
+  google.script.run
+    .withSuccessHandler(function(partners) {
+      preloadedPartners = partners || [];
+      cachedPartners = preloadedPartners;
+    })
+    .withFailureHandler(function(error) {
+      console.error('Preload partners error:', error);
+    })
+    .getAllPartners(spreadsheetId);
+}
+
+// Customer Autocomplete
+function handleCustomerInput(inputElement) {
+  const query = inputElement.value;
+  const customerIdInput = document.getElementById('customerId');
+  
+  // Nếu user đang gõ khác với tên đã chọn trước đó, clear ID
+  if (customerIdInput && customerIdInput.value && query !== lastSelectedCustomerName) {
+    customerIdInput.value = '';
+    document.getElementById('customerPhone').value = '';
+    document.getElementById('customerEmail').value = '';
+  }
+  
+  searchCustomerAutocomplete(query);
+}
+
+function searchCustomerAutocomplete(query) {
+  clearTimeout(autocompleteTimeout);
+  const resultsDiv = document.getElementById('customerAutocomplete');
+  
+  if (!resultsDiv) return;
+  
+  // Nếu không có query, hiển thị danh sách preloaded
+  if (!query || query.length < 1) {
+    if (preloadedCustomers.length > 0) {
+      cachedCustomers = preloadedCustomers.slice(0, 10);
+      renderCustomerAutocomplete(cachedCustomers, '');
+    } else {
+      resultsDiv.classList.remove('active');
+    }
+    return;
+  }
+  
+  // Tìm trong cache trước (instant)
+  const lowerQuery = query.toLowerCase();
+  const filtered = preloadedCustomers.filter(c => 
+    c.name.toLowerCase().includes(lowerQuery) ||
+    c.phone.includes(query) ||
+    c.email.toLowerCase().includes(lowerQuery)
+  ).slice(0, 10);
+  
+  cachedCustomers = filtered;
+  renderCustomerAutocomplete(filtered, query);
+}
+
+function renderCustomerAutocomplete(customers, query) {
+  const resultsDiv = document.getElementById('customerAutocomplete');
+  if (!resultsDiv) return;
+  
+  let html = '';
+  
+  if (customers.length > 0) {
+    customers.forEach((customer, index) => {
+      html += `
+        <div class="autocomplete-item" data-index="${index}" data-type="customer" onclick="selectCustomerByIndex(${index})">
+          <div class="name">${highlightMatch(customer.name, query)}</div>
+          <div class="info">${customer.phone || ''} ${customer.email ? '• ' + customer.email : ''}</div>
+        </div>
+      `;
+    });
+  }
+  
+  html += `
+    <div class="autocomplete-add" onclick="showNewCustomerForm('${escapeForAttr(query)}')">
+      ➕ Thêm khách hàng mới "${escapeHtml(query)}"
+    </div>
+  `;
+  
+  resultsDiv.innerHTML = html;
+  resultsDiv.classList.add('active');
+}
+
+function selectCustomerByIndex(index) {
+  const customer = cachedCustomers[index];
+  if (!customer) return;
+  
+  try {
+    document.getElementById('customerId').value = customer.id;
+    document.getElementById('customerName').value = customer.name;
+    document.getElementById('customerPhone').value = customer.phone || '';
+    document.getElementById('customerEmail').value = customer.email || '';
+    document.getElementById('customerAutocomplete').classList.remove('active');
+    lastSelectedCustomerName = customer.name;
+    
+    // Visual feedback
+    showToast('Đã chọn: ' + customer.name, 'success');
+  } catch (e) {
+    console.error('Error selecting customer:', e);
+  }
+}
+
+// Giữ lại function cũ để tương thích
+function selectCustomer(id, name, phone, email) {
+  try {
+    document.getElementById('customerId').value = id;
+    document.getElementById('customerName').value = name;
+    document.getElementById('customerPhone').value = phone;
+    document.getElementById('customerEmail').value = email;
+    document.getElementById('customerAutocomplete').classList.remove('active');
+    lastSelectedCustomerName = name;
+  } catch (e) {
+    console.error('Error selecting customer:', e);
+  }
+}
+
+// Hiển thị form thêm customer mới (thay vì prompt)
+function showNewCustomerForm(prefillName) {
+  document.getElementById('customerAutocomplete').classList.remove('active');
+  
+  // Lưu tạm data job hiện tại
+  saveCurrentJobFormData();
+  
+  const html = `
+    <form id="newCustomerInJobForm" onsubmit="submitNewCustomerInJob(event)">
+      <div class="form-group">
+        <label>Tên khách hàng *</label>
+        <input type="text" id="newCustName" required value="${prefillName}" placeholder="Nguyễn Văn A">
+      </div>
+      
+      <div class="form-row">
+        <div class="form-group">
+          <label>Số điện thoại *</label>
+          <input type="tel" id="newCustPhone" required placeholder="0901234567">
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" id="newCustEmail" placeholder="email@example.com">
+        </div>
+      </div>
+      
+      <div class="form-group">
+        <label>Địa chỉ</label>
+        <input type="text" id="newCustAddress" placeholder="Số nhà, đường, quận...">
+      </div>
+      
+      <div class="form-group">
+        <label>Ghi chú</label>
+        <textarea id="newCustNotes" placeholder="Ghi chú về khách hàng..."></textarea>
+      </div>
+      
+      <div class="form-actions">
+        <button type="button" class="btn btn-secondary" onclick="cancelNewCustomerInJob()">Hủy</button>
+        <button type="submit" class="btn btn-primary">💾 Lưu & Chọn</button>
+      </div>
+    </form>
+  `;
+  
+  document.getElementById('modalBody').innerHTML = html;
+  document.getElementById('modalTitle').textContent = '➕ Thêm khách hàng mới';
+  document.getElementById('newCustPhone').focus();
+}
+
+function submitNewCustomerInJob(e) {
+  e.preventDefault();
+  
+  const customerData = {
+    name: document.getElementById('newCustName').value.trim(),
+    phone: document.getElementById('newCustPhone').value.trim(),
+    email: document.getElementById('newCustEmail').value.trim(),
+    address: document.getElementById('newCustAddress').value.trim(),
+    notes: document.getElementById('newCustNotes').value.trim()
+  };
+  
+  if (!customerData.name) {
+    showToast('Vui lòng nhập tên khách hàng!', 'error');
+    return;
+  }
+  
+  showLoading();
+  
+  try {
+    google.script.run
+      .withSuccessHandler(function(result) {
+        hideLoading();
+        if (result.success) {
+          showToast('Đã thêm khách hàng: ' + result.customer.name, 'success');
+          invalidateCache('customers');
+          
+          // Restore job form và điền customer info
+          restoreJobFormWithCustomer(result);
+        } else {
+          showToast(result.message, 'error');
+        }
+      })
+      .withFailureHandler(function(error) {
+        hideLoading();
+        showToast('Lỗi: ' + (error.message || 'Không thể thêm khách hàng'), 'error');
+        console.error('Add customer error:', error);
+      })
+      .addCustomer(customerData, spreadsheetId);
+  } catch (e) {
+    hideLoading();
+    showToast('Lỗi hệ thống: ' + e.message, 'error');
+    console.error('Exception in submitNewCustomerInJob:', e);
+  }
+}
+
+function cancelNewCustomerInJob() {
+  // Restore job form với data đã lưu
+  restoreJobForm();
+}
+
+// Lưu data job form hiện tại
+function saveCurrentJobFormData() {
+  try {
+    pendingJobData = {
+      jobId: document.getElementById('jobId')?.value || '',
+      customerId: document.getElementById('customerId')?.value || '',
+      customerName: document.getElementById('customerName')?.value || '',
+      customerPhone: document.getElementById('customerPhone')?.value || '',
+      customerEmail: document.getElementById('customerEmail')?.value || '',
+      shootDate: document.getElementById('shootDate')?.value || '',
+      location: document.getElementById('location')?.value || '',
+      jobType: document.getElementById('jobType')?.value || '',
+      totalAmount: parseFormattedNumber(document.getElementById('totalAmount')?.value),
+      paidAmount: parseFormattedNumber(document.getElementById('paidAmount')?.value),
+      jobStatus: document.getElementById('jobStatus')?.value || 'Chờ chụp',
+      driveLink: document.getElementById('driveLink')?.value || '',
+      partnerId: document.getElementById('partnerId')?.value || '',
+      partnerName: document.getElementById('partnerName')?.value || '',
+      partnerFee: parseFormattedNumber(document.getElementById('partnerFee')?.value),
+      notes: document.getElementById('notes')?.value || ''
+    };
+  } catch (e) {
+    console.error('Error saving job form data:', e);
+    pendingJobData = null;
+  }
+}
+
+// Restore job form và điền customer mới
+function restoreJobFormWithCustomer(customerResult) {
+  if (pendingJobData) {
+    pendingJobData.customerId = customerResult.customerId;
+    pendingJobData.customerName = customerResult.customer.name;
+    pendingJobData.customerPhone = customerResult.customer.phone || '';
+    pendingJobData.customerEmail = customerResult.customer.email || '';
+  }
+  restoreJobForm();
+}
+
+// Restore job form và điền partner mới
+function restoreJobFormWithPartner(partnerResult) {
+  if (pendingJobData) {
+    pendingJobData.partnerId = partnerResult.partnerId;
+    pendingJobData.partnerName = partnerResult.partner.name;
+  }
+  restoreJobForm();
+}
+
+// Restore job form
+function restoreJobForm() {
+  showJobForm(pendingJobData);
+  pendingJobData = null;
+}
+
+// Partner Autocomplete
+function handlePartnerInput(inputElement) {
+  const query = inputElement.value;
+  const partnerIdInput = document.getElementById('partnerId');
+  
+  // Nếu user đang gõ khác với tên đã chọn trước đó, clear ID
+  if (partnerIdInput && partnerIdInput.value && query !== lastSelectedPartnerName) {
+    partnerIdInput.value = '';
+    if (document.getElementById('partnerEmail')) {
+      document.getElementById('partnerEmail').value = '';
+    }
+  }
+  
+  searchPartnerAutocomplete(query);
+}
+
+function searchPartnerAutocomplete(query) {
+  clearTimeout(autocompleteTimeout);
+  const resultsDiv = document.getElementById('partnerAutocomplete');
+  
+  if (!resultsDiv) return;
+  
+  // Nếu không có query, hiển thị danh sách preloaded
+  if (!query || query.length < 1) {
+    if (preloadedPartners.length > 0) {
+      cachedPartners = preloadedPartners.slice(0, 10);
+      renderPartnerAutocomplete(cachedPartners, '');
+    } else {
+      resultsDiv.classList.remove('active');
+    }
+    return;
+  }
+  
+  // Tìm trong cache trước (instant)
+  const lowerQuery = query.toLowerCase();
+  const filtered = preloadedPartners.filter(p => 
+    p.name.toLowerCase().includes(lowerQuery) ||
+    p.phone.includes(query) ||
+    p.specialty.toLowerCase().includes(lowerQuery)
+  ).slice(0, 10);
+  
+  cachedPartners = filtered;
+  renderPartnerAutocomplete(filtered, query);
+}
+
+function renderPartnerAutocomplete(partners, query) {
+  const resultsDiv = document.getElementById('partnerAutocomplete');
+  if (!resultsDiv) return;
+  
+  let html = '';
+  
+  if (partners.length > 0) {
+    partners.forEach((partner, index) => {
+      html += `
+        <div class="autocomplete-item" data-index="${index}" data-type="partner" onclick="selectPartnerByIndex(${index})">
+          <div class="name">${highlightMatch(partner.name, query)}</div>
+          <div class="info">${partner.specialty || ''} ${partner.phone ? '• ' + partner.phone : ''}</div>
+        </div>
+      `;
+    });
+  }
+  
+  html += `
+    <div class="autocomplete-add" onclick="showNewPartnerForm('${escapeForAttr(query)}')">
+      ➕ Thêm partner mới "${escapeHtml(query)}"
+    </div>
+  `;
+  
+  resultsDiv.innerHTML = html;
+  resultsDiv.classList.add('active');
+}
+
+function selectPartnerByIndex(index) {
+  const partner = cachedPartners[index];
+  if (!partner) return;
+  
+  try {
+    document.getElementById('partnerId').value = partner.id;
+    document.getElementById('partnerName').value = partner.name;
+    if (document.getElementById('partnerEmail')) {
+      document.getElementById('partnerEmail').value = partner.email || '';
+    }
+    document.getElementById('partnerAutocomplete').classList.remove('active');
+    lastSelectedPartnerName = partner.name;
+    
+    // Visual feedback
+    showToast('Đã chọn: ' + partner.name, 'success');
+  } catch (e) {
+    console.error('Error selecting partner:', e);
+  }
+}
+
+function selectPartner(id, name, email) {
+  try {
+    document.getElementById('partnerId').value = id;
+    document.getElementById('partnerName').value = name;
+    if (document.getElementById('partnerEmail')) {
+      document.getElementById('partnerEmail').value = email;
+    }
+    document.getElementById('partnerAutocomplete').classList.remove('active');
+    lastSelectedPartnerName = name; // Lưu tên đã chọn
+  } catch (e) {
+    console.error('Error selecting partner:', e);
+  }
+}
+
+// Hiển thị form thêm partner mới (thay vì prompt)
+function showNewPartnerForm(prefillName) {
+  document.getElementById('partnerAutocomplete').classList.remove('active');
+  
+  // Lưu tạm data job hiện tại
+  saveCurrentJobFormData();
+  
+  const html = `
+    <form id="newPartnerInJobForm" onsubmit="submitNewPartnerInJob(event)">
+      <div class="form-group">
+        <label>Tên Partner *</label>
+        <input type="text" id="newPartName" required value="${prefillName}" placeholder="Tên partner">
+      </div>
+      
+      <div class="form-row">
+        <div class="form-group">
+          <label>Số điện thoại *</label>
+          <input type="tel" id="newPartPhone" required placeholder="0901234567">
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" id="newPartEmail" placeholder="email@example.com">
+        </div>
+      </div>
+      
+      <div class="form-group">
+        <label>Chuyên môn</label>
+        <select id="newPartSpecialty">
+          <option value="">-- Chọn --</option>
+          <option value="Photographer">📸 Photographer</option>
+          <option value="Editor">🖥️ Editor</option>
+          <option value="Assistant">🙋 Assistant</option>
+          <option value="Makeup">💄 Makeup</option>
+          <option value="Khác">📌 Khác</option>
+        </select>
+      </div>
+      
+      <div class="form-group">
+        <label>Ghi chú</label>
+        <textarea id="newPartNotes" placeholder="Ghi chú về partner..."></textarea>
+      </div>
+      
+      <div class="form-actions">
+        <button type="button" class="btn btn-secondary" onclick="cancelNewPartnerInJob()">Hủy</button>
+        <button type="submit" class="btn btn-primary">💾 Lưu & Chọn</button>
+      </div>
+    </form>
+  `;
+  
+  document.getElementById('modalBody').innerHTML = html;
+  document.getElementById('modalTitle').textContent = '➕ Thêm partner mới';
+  document.getElementById('newPartPhone').focus();
+}
+
+function submitNewPartnerInJob(e) {
+  e.preventDefault();
+  
+  const partnerData = {
+    name: document.getElementById('newPartName').value.trim(),
+    phone: document.getElementById('newPartPhone').value.trim(),
+    email: document.getElementById('newPartEmail').value.trim(),
+    specialty: document.getElementById('newPartSpecialty').value,
+    notes: document.getElementById('newPartNotes').value.trim()
+  };
+  
+  if (!partnerData.name) {
+    showToast('Vui lòng nhập tên partner!', 'error');
+    return;
+  }
+  
+  showLoading();
+  
+  try {
+    google.script.run
+      .withSuccessHandler(function(result) {
+        hideLoading();
+        if (result.success) {
+          showToast('Đã thêm partner: ' + result.partner.name, 'success');
+          invalidateCache('partners');
+          
+          // Restore job form và điền partner info
+          restoreJobFormWithPartner(result);
+        } else {
+          showToast(result.message, 'error');
+        }
+      })
+      .withFailureHandler(function(error) {
+        hideLoading();
+        showToast('Lỗi: ' + (error.message || 'Không thể thêm partner'), 'error');
+        console.error('Add partner error:', error);
+      })
+      .addPartner(partnerData, spreadsheetId);
+  } catch (e) {
+    hideLoading();
+    showToast('Lỗi hệ thống: ' + e.message, 'error');
+    console.error('Exception in submitNewPartnerInJob:', e);
+  }
+}
+
+function cancelNewPartnerInJob() {
+  // Restore job form với data đã lưu
+  restoreJobForm();
+}
+
+// Location Autocomplete
+function searchLocationAutocomplete(query) {
+  clearTimeout(autocompleteTimeout);
+  const resultsDiv = document.getElementById('locationAutocomplete');
+  
+  if (!query || query.length < 2 || !spreadsheetId) {
+    resultsDiv.classList.remove('active');
+    return;
+  }
+  
+  autocompleteTimeout = setTimeout(() => {
+    google.script.run
+      .withSuccessHandler(function(locations) {
+        renderLocationAutocomplete(locations, query);
+      })
+      .getLocationSuggestions(query, spreadsheetId);
+  }, 300);
+}
+
+function renderLocationAutocomplete(locations, query) {
+  const resultsDiv = document.getElementById('locationAutocomplete');
+  
+  if (locations.length === 0) {
+    resultsDiv.classList.remove('active');
+    return;
+  }
+  
+  let html = '';
+  locations.forEach((location, index) => {
+    html += `
+      <div class="autocomplete-item" data-index="${index}" onclick="selectLocationByIndex(${index})">
+        <div class="name">📍 ${highlightMatch(location, query)}</div>
+      </div>
+    `;
+  });
+  
+  cachedLocations = locations; // Cache kết quả
+  resultsDiv.innerHTML = html;
+  resultsDiv.classList.add('active');
+}
+
+function selectLocationByIndex(index) {
+  const location = cachedLocations[index];
+  if (!location) return;
+  
+  document.getElementById('location').value = location;
+  document.getElementById('locationAutocomplete').classList.remove('active');
+}
+
+function selectLocation(location) {
+  document.getElementById('location').value = location;
+  document.getElementById('locationAutocomplete').classList.remove('active');
+}
+
+// Utility functions
+function highlightMatch(text, query) {
+  if (!query) return text;
+  const regex = new RegExp(`(${escapeRegex(query)})`, 'gi');
+  return text.replace(regex, '<strong>$1</strong>');
+}
+
+function escapeHtml(text) {
+  if (!text) return '';
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+// Escape cho HTML attribute (dùng trong onclick)
+function escapeForAttr(text) {
+  if (!text) return '';
+  return text
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/"/g, '\\"');
+}
+
+function escapeRegex(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Close autocomplete when clicking outside
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('.autocomplete-wrapper')) {
+    document.querySelectorAll('.autocomplete-results').forEach(div => {
+      div.classList.remove('active');
+    });
+  }
+});
+
+// Handle keyboard navigation for autocomplete
+document.addEventListener('keydown', function(e) {
+  const activeAutocomplete = document.querySelector('.autocomplete-results.active');
+  if (!activeAutocomplete) return;
+  
+  const items = activeAutocomplete.querySelectorAll('.autocomplete-item, .autocomplete-add');
+  const currentIndex = Array.from(items).findIndex(item => item.classList.contains('focused'));
+  
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    const nextIndex = currentIndex < items.length - 1 ? currentIndex + 1 : 0;
+    items.forEach(item => item.classList.remove('focused'));
+    items[nextIndex].classList.add('focused');
+    items[nextIndex].scrollIntoView({ block: 'nearest' });
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    const prevIndex = currentIndex > 0 ? currentIndex - 1 : items.length - 1;
+    items.forEach(item => item.classList.remove('focused'));
+    items[prevIndex].classList.add('focused');
+    items[prevIndex].scrollIntoView({ block: 'nearest' });
+  } else if (e.key === 'Enter' && currentIndex >= 0) {
+    e.preventDefault();
+    items[currentIndex].click();
+  } else if (e.key === 'Escape') {
+    activeAutocomplete.classList.remove('active');
+  }
+});
+</script>
+
+<style>
+.autocomplete-item.focused,
+.autocomplete-add.focused {
+  background: var(--bg-secondary);
+}
+
+.autocomplete-loading {
+  padding: 16px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+.autocomplete-results {
+  z-index: 1000;
+}
+</style>

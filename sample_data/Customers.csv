@@ -1,0 +1,101 @@
+Customer_ID,Tên,SĐT,Email,Địa chỉ,Tổng job,Tổng chi tiêu,Ghi chú,Ngày tạo,Đã xóa
+KH-001,Nguyễn Văn An,0901234567,an.nguyen@gmail.com,123 Nguyễn Huệ Q1 HCM,0,0,Khách VIP,2024-01-15,FALSE
+KH-002,Trần Thị Bình,0912345678,binh.tran@yahoo.com,456 Lê Lợi Q3 HCM,0,0,Khách quen,2024-01-16,FALSE
+KH-003,Lê Hoàng Cường,0923456789,cuong.le@hotmail.com,789 Hai Bà Trưng Q1 HCM,0,0,,2024-01-17,FALSE
+KH-004,Phạm Thị Dung,0934567890,dung.pham@gmail.com,321 Điện Biên Phủ Q3 HCM,0,0,Giới thiệu từ KH-001,2024-01-18,FALSE
+KH-005,Hoàng Văn Em,0945678901,em.hoang@outlook.com,654 Võ Văn Tần Q3 HCM,0,0,,2024-01-19,FALSE
+KH-006,Vũ Thị Phương,0956789012,phuong.vu@gmail.com,987 Cách Mạng Tháng 8 Q10 HCM,0,0,Khách cưới,2024-01-20,FALSE
+KH-007,Đặng Quốc Gia,0967890123,gia.dang@yahoo.com,147 Trần Hưng Đạo Q5 HCM,0,0,,2024-01-21,FALSE
+KH-008,Bùi Thị Hạnh,0978901234,hanh.bui@gmail.com,258 Nguyễn Thị Minh Khai Q1 HCM,0,0,Khách sự kiện,2024-01-22,FALSE
+KH-009,Ngô Văn Inh,0989012345,inh.ngo@hotmail.com,369 Lý Tự Trọng Q1 HCM,0,0,,2024-01-23,FALSE
+KH-010,Đỗ Thị Kim,0990123456,kim.do@gmail.com,741 Pasteur Q3 HCM,0,0,Khách VIP,2024-01-24,FALSE
+KH-011,Trịnh Văn Long,0901112233,long.trinh@yahoo.com,852 Nam Kỳ Khởi Nghĩa Q3 HCM,0,0,,2024-01-25,FALSE
+KH-012,Lý Thị Mai,0912223344,mai.ly@gmail.com,963 Nguyễn Đình Chiểu Q3 HCM,0,0,Khách cưới,2024-01-26,FALSE
+KH-013,Phan Văn Nam,0923334455,nam.phan@outlook.com,174 Đinh Tiên Hoàng Q1 HCM,0,0,,2024-01-27,FALSE
+KH-014,Võ Thị Oanh,0934445566,oanh.vo@gmail.com,285 Lê Văn Sỹ Q3 HCM,0,0,,2024-01-28,FALSE
+KH-015,Dương Văn Phúc,0945556677,phuc.duong@yahoo.com,396 Nguyễn Văn Trỗi PN HCM,0,0,Khách quen,2024-01-29,FALSE
+KH-016,Hồ Thị Quỳnh,0956667788,quynh.ho@gmail.com,417 Hoàng Văn Thụ PN HCM,0,0,,2024-01-30,FALSE
+KH-017,Đinh Văn Rồng,0967778899,rong.dinh@hotmail.com,528 Phan Đăng Lưu PN HCM,0,0,,2024-01-31,FALSE
+KH-018,Tô Thị Sen,0978889900,sen.to@gmail.com,639 Trường Sa Q3 HCM,0,0,Khách sự kiện,2024-02-01,FALSE
+KH-019,Lương Văn Tài,0989990011,tai.luong@yahoo.com,741 Hoàng Sa Q3 HCM,0,0,,2024-02-02,FALSE
+KH-020,Chu Thị Uyên,0990001122,uyen.chu@gmail.com,852 Nguyễn Thượng Hiền Q3 HCM,0,0,,2024-02-03,FALSE
+KH-021,Mai Văn Vinh,0901122334,vinh.mai@outlook.com,963 Bà Huyện Thanh Quan Q3 HCM,0,0,Khách VIP,2024-02-04,FALSE
+KH-022,Trương Thị Xuân,0912233445,xuan.truong@gmail.com,174 Võ Thị Sáu Q3 HCM,0,0,,2024-02-05,FALSE
+KH-023,Cao Văn Yên,0923344556,yen.cao@yahoo.com,285 Trần Quốc Thảo Q3 HCM,0,0,,2024-02-06,FALSE
+KH-024,Đoàn Thị Zara,0934455667,zara.doan@gmail.com,396 Kỳ Đồng Q3 HCM,0,0,Khách cưới,2024-02-07,FALSE
+KH-025,Lâm Văn Anh,0945566778,anh.lam@hotmail.com,417 Nguyễn Công Trứ Q1 HCM,0,0,,2024-02-08,FALSE
+KH-026,Kiều Thị Bảo,0956677889,bao.kieu@gmail.com,528 Tôn Đức Thắng Q1 HCM,0,0,,2024-02-09,FALSE
+KH-027,Tăng Văn Công,0967788990,cong.tang@yahoo.com,639 Nguyễn Bỉnh Khiêm Q1 HCM,0,0,Khách quen,2024-02-10,FALSE
+KH-028,Quách Thị Diễm,0978899001,diem.quach@gmail.com,741 Mạc Đĩnh Chi Q1 HCM,0,0,,2024-02-11,FALSE
+KH-029,Mạc Văn Đức,0989900112,duc.mac@outlook.com,852 Phạm Ngọc Thạch Q3 HCM,0,0,,2024-02-12,FALSE
+KH-030,Từ Thị Giang,0990011223,giang.tu@gmail.com,963 Trần Cao Vân Q3 HCM,0,0,Khách sự kiện,2024-02-13,FALSE
+KH-031,Hà Văn Hải,0901233456,hai.ha@yahoo.com,174 Nguyễn Thị Diệu Q3 HCM,0,0,,2024-02-14,FALSE
+KH-032,Tạ Thị Hương,0912344567,huong.ta@gmail.com,285 Lê Quý Đôn Q3 HCM,0,0,,2024-02-15,FALSE
+KH-033,Nghiêm Văn Khoa,0923455678,khoa.nghiem@hotmail.com,396 Nguyễn Phi Khanh Q1 HCM,0,0,Khách VIP,2024-02-16,FALSE
+KH-034,Thái Thị Lan,0934566789,lan.thai@gmail.com,417 Thạch Thị Thanh Q1 HCM,0,0,,2024-02-17,FALSE
+KH-035,La Văn Minh,0945677890,minh.la@yahoo.com,528 Trần Quang Khải Q1 HCM,0,0,,2024-02-18,FALSE
+KH-036,Âu Thị Ngọc,0956788901,ngoc.au@gmail.com,639 Đinh Công Tráng Q1 HCM,0,0,Khách cưới,2024-02-19,FALSE
+KH-037,Ông Văn Phong,0967899012,phong.ong@outlook.com,741 Nguyễn Siêu Q1 HCM,0,0,,2024-02-20,FALSE
+KH-038,Sầm Thị Quế,0978900123,que.sam@gmail.com,852 Lê Thánh Tôn Q1 HCM,0,0,,2024-02-21,FALSE
+KH-039,Cung Văn Sơn,0989011234,son.cung@yahoo.com,963 Đồng Khởi Q1 HCM,0,0,Khách quen,2024-02-22,FALSE
+KH-040,Đào Thị Trang,0990122345,trang.dao@gmail.com,174 Lý Thường Kiệt Q10 HCM,0,0,,2024-02-23,FALSE
+KH-041,Ninh Văn Tuấn,0901234568,tuan.ninh@hotmail.com,285 Nguyễn Chí Thanh Q10 HCM,0,0,,2024-02-24,FALSE
+KH-042,Châu Thị Vân,0912345679,van.chau@gmail.com,396 Lạc Long Quân Q11 HCM,0,0,Khách sự kiện,2024-02-25,FALSE
+KH-043,Khổng Văn Xuân,0923456790,xuan.khong@yahoo.com,417 Âu Cơ Q11 HCM,0,0,,2024-02-26,FALSE
+KH-044,Mã Thị Yến,0934567891,yen.ma@gmail.com,528 Hậu Giang Q6 HCM,0,0,,2024-02-27,FALSE
+KH-045,Thi Văn An,0945678902,an.thi@outlook.com,639 Bình Phú Q6 HCM,0,0,Khách VIP,2024-02-28,FALSE
+KH-046,Triệu Thị Bích,0956789013,bich.trieu@gmail.com,741 Lê Quang Sung Q6 HCM,0,0,,2024-03-01,FALSE
+KH-047,Hứa Văn Chiến,0967890124,chien.hua@yahoo.com,852 Tân Hòa Đông Q6 HCM,0,0,,2024-03-02,FALSE
+KH-048,Tôn Thị Duyên,0978901235,duyen.ton@gmail.com,963 Phạm Văn Chí Q6 HCM,0,0,Khách cưới,2024-03-03,FALSE
+KH-049,Tiêu Văn Hùng,0989012346,hung.tieu@hotmail.com,174 Hùng Vương Q5 HCM,0,0,,2024-03-04,FALSE
+KH-050,Quan Thị Liên,0990123457,lien.quan@gmail.com,285 Nguyễn Trãi Q5 HCM,0,0,,2024-03-05,FALSE
+KH-051,Sử Văn Mạnh,0901234569,manh.su@yahoo.com,396 An Dương Vương Q5 HCM,0,0,Khách quen,2024-03-06,FALSE
+KH-052,Phùng Thị Nhung,0912345680,nhung.phung@gmail.com,417 Trần Phú Q5 HCM,0,0,,2024-03-07,FALSE
+KH-053,Trác Văn Phát,0923456791,phat.trac@outlook.com,528 Châu Văn Liêm Q5 HCM,0,0,,2024-03-08,FALSE
+KH-054,Ân Thị Quyên,0934567892,quyen.an@gmail.com,639 Ngô Quyền Q5 HCM,0,0,Khách sự kiện,2024-03-09,FALSE
+KH-055,Bành Văn Sang,0945678903,sang.banh@yahoo.com,741 Bùi Hữu Nghĩa Q5 HCM,0,0,,2024-03-10,FALSE
+KH-056,Cù Thị Thảo,0956789014,thao.cu@gmail.com,852 Nguyễn Văn Cừ Q5 HCM,0,0,,2024-03-11,FALSE
+KH-057,Doãn Văn Uy,0967890125,uy.doan@hotmail.com,963 Hải Thượng Lãn Ông Q5 HCM,0,0,Khách VIP,2024-03-12,FALSE
+KH-058,Giáp Thị Vui,0978901236,vui.giap@gmail.com,174 Triệu Quang Phục Q5 HCM,0,0,,2024-03-13,FALSE
+KH-059,Hạ Văn Xuyến,0989012347,xuyen.ha@yahoo.com,285 Tản Đà Q5 HCM,0,0,,2024-03-14,FALSE
+KH-060,Kha Thị Yến,0990123458,yen.kha@gmail.com,396 Lương Nhữ Hộc Q5 HCM,0,0,Khách cưới,2024-03-15,FALSE
+KH-061,Lại Văn Bảo,0901234570,bao.lai@outlook.com,417 Học Lạc Q5 HCM,0,0,,2024-03-16,FALSE
+KH-062,Mẫn Thị Châu,0912345681,chau.man@gmail.com,528 Phùng Hưng Q5 HCM,0,0,,2024-03-17,FALSE
+KH-063,Ngụy Văn Dũng,0923456792,dung.nguy@yahoo.com,639 Nguyễn Duy Dương Q5 HCM,0,0,Khách quen,2024-03-18,FALSE
+KH-064,Ôn Thị Hà,0934567893,ha.on@gmail.com,741 Nguyễn Văn Đừng Q5 HCM,0,0,,2024-03-19,FALSE
+KH-065,Phí Văn Khánh,0945678904,khanh.phi@hotmail.com,852 Ký Con Q1 HCM,0,0,,2024-03-20,FALSE
+KH-066,Quản Thị Linh,0956789015,linh.quan@gmail.com,963 Calmette Q1 HCM,0,0,Khách sự kiện,2024-03-21,FALSE
+KH-067,Sơn Văn Nghĩa,0967890126,nghia.son@yahoo.com,174 Phó Đức Chính Q1 HCM,0,0,,2024-03-22,FALSE
+KH-068,Thạch Thị Phương,0978901237,phuong.thach@gmail.com,285 Nguyễn Thái Bình Q1 HCM,0,0,,2024-03-23,FALSE
+KH-069,Uông Văn Quý,0989012348,quy.uong@outlook.com,396 Bùi Viện Q1 HCM,0,0,Khách VIP,2024-03-24,FALSE
+KH-070,Viên Thị Như,0990123459,nhu.vien@gmail.com,417 Đề Thám Q1 HCM,0,0,,2024-03-25,FALSE
+KH-071,Xa Văn Thành,0901234571,thanh.xa@yahoo.com,528 Cống Quỳnh Q1 HCM,0,0,,2024-03-26,FALSE
+KH-072,Yên Thị Trúc,0912345682,truc.yen@gmail.com,639 Trần Đình Xu Q1 HCM,0,0,Khách cưới,2024-03-27,FALSE
+KH-073,Bạch Văn Việt,0923456793,viet.bach@hotmail.com,741 Nguyễn Cư Trinh Q1 HCM,0,0,,2024-03-28,FALSE
+KH-074,Cầm Thị Ánh,0934567894,anh.cam@gmail.com,852 Trần Hưng Đạo Q1 HCM,0,0,,2024-03-29,FALSE
+KH-075,Đường Văn Bình,0945678905,binh.duong@yahoo.com,963 Nguyễn An Ninh Q1 HCM,0,0,Khách quen,2024-03-30,FALSE
+KH-076,Gia Thị Cúc,0956789016,cuc.gia@gmail.com,174 Trần Quý Cáp Q3 HCM,0,0,,2024-03-31,FALSE
+KH-077,Hầu Văn Đạt,0967890127,dat.hau@outlook.com,285 Nguyễn Đình Chính PN HCM,0,0,,2024-04-01,FALSE
+KH-078,Kim Thị Gấm,0978901238,gam.kim@gmail.com,396 Phan Xích Long PN HCM,0,0,Khách sự kiện,2024-04-02,FALSE
+KH-079,Lục Văn Hoàng,0989012349,hoang.luc@yahoo.com,417 Nguyễn Văn Đậu BT HCM,0,0,,2024-04-03,FALSE
+KH-080,Nhạc Thị Kiều,0990123460,kieu.nhac@gmail.com,528 Lê Quang Định BT HCM,0,0,,2024-04-04,FALSE
+KH-081,Quách Văn Lộc,0901234572,loc.quach@hotmail.com,639 Bạch Đằng BT HCM,0,0,Khách VIP,2024-04-05,FALSE
+KH-082,Thân Thị Mai,0912345683,mai.than@gmail.com,741 Đinh Bộ Lĩnh BT HCM,0,0,,2024-04-06,FALSE
+KH-083,Ung Văn Nhân,0923456794,nhan.ung@yahoo.com,852 Nơ Trang Long BT HCM,0,0,,2024-04-07,FALSE
+KH-084,Vi Thị Oanh,0934567895,oanh.vi@gmail.com,963 Phạm Văn Đồng GV HCM,0,0,Khách cưới,2024-04-08,FALSE
+KH-085,Xã Văn Phúc,0945678906,phuc.xa@outlook.com,174 Quang Trung GV HCM,0,0,,2024-04-09,FALSE
+KH-086,Yết Thị Quyên,0956789017,quyen.yet@gmail.com,285 Lê Đức Thọ GV HCM,0,0,,2024-04-10,FALSE
+KH-087,Ấn Văn Sáng,0967890128,sang.an@yahoo.com,396 Nguyễn Kiệm GV HCM,0,0,Khách quen,2024-04-11,FALSE
+KH-088,Biện Thị Thương,0978901239,thuong.bien@gmail.com,417 Nguyễn Oanh GV HCM,0,0,,2024-04-12,FALSE
+KH-089,Cấn Văn Ước,0989012350,uoc.can@hotmail.com,528 Phan Huy Ích GV HCM,0,0,,2024-04-13,FALSE
+KH-090,Diêm Thị Vân,0990123461,van.diem@gmail.com,639 Lê Lợi TB HCM,0,0,Khách sự kiện,2024-04-14,FALSE
+KH-091,Giả Văn Xinh,0901234573,xinh.gia@yahoo.com,741 Lý Thường Kiệt TB HCM,0,0,,2024-04-15,FALSE
+KH-092,Hác Thị Yến,0912345684,yen.hac@gmail.com,852 Cách Mạng Tháng 8 TB HCM,0,0,,2024-04-16,FALSE
+KH-093,Khâu Văn An,0923456795,an.khau@outlook.com,963 Trường Chinh TB HCM,0,0,Khách VIP,2024-04-17,FALSE
+KH-094,Lôi Thị Bích,0934567896,bich.loi@gmail.com,174 Âu Cơ TB HCM,0,0,,2024-04-18,FALSE
+KH-095,Nhâm Văn Cảnh,0945678907,canh.nham@yahoo.com,285 Tân Sơn Nhì TB HCM,0,0,,2024-04-19,FALSE
+KH-096,Phương Thị Diệu,0956789018,dieu.phuong@gmail.com,396 Lũy Bán Bích TB HCM,0,0,Khách cưới,2024-04-20,FALSE
+KH-097,Sa Văn Em,0967890129,em.sa@hotmail.com,417 Gò Dầu TB HCM,0,0,,2024-04-21,FALSE
+KH-098,Thường Thị Giang,0978901240,giang.thuong@gmail.com,528 Hòa Bình TB HCM,0,0,,2024-04-22,FALSE
+KH-099,Uy Văn Hào,0989012351,hao.uy@yahoo.com,639 Tân Phú TP HCM,0,0,Khách quen,2024-04-23,FALSE
+KH-100,Vương Thị Khánh,0990123462,khanh.vuong@gmail.com,741 Lê Trọng Tấn TP HCM,0,0,,2024-04-24,FALSE

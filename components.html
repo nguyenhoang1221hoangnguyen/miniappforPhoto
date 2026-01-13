@@ -1,0 +1,282 @@
+<script type="text/html" id="jobFormTemplate">
+  <form id="jobForm" onsubmit="submitJobForm(event)">
+    <input type="hidden" id="jobId" name="jobId">
+    
+    <div class="form-section-title">👤 Thông tin khách hàng</div>
+    
+    <div class="form-group autocomplete-wrapper">
+      <label>Tên khách hàng *</label>
+      <input type="text" id="customerName" name="customerName" required 
+             autocomplete="off" placeholder="Nhập tên để tìm kiếm..."
+             oninput="handleCustomerInput(this)"
+             onfocus="handleCustomerInput(this)">
+      <input type="hidden" id="customerId" name="customerId">
+      <div id="customerAutocomplete" class="autocomplete-results"></div>
+    </div>
+    
+    <div class="form-row">
+      <div class="form-group">
+        <label>Số điện thoại</label>
+        <input type="tel" id="customerPhone" name="customerPhone" placeholder="0901234567">
+      </div>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="customerEmail" name="customerEmail" placeholder="email@example.com">
+      </div>
+    </div>
+    
+    <div class="form-section-title">📷 Thông tin Job</div>
+    
+    <div class="form-row">
+      <div class="form-group">
+        <label>Ngày chụp *</label>
+        <input type="datetime-local" id="shootDate" name="shootDate" required>
+      </div>
+      <div class="form-group">
+        <label>Loại chụp</label>
+        <select id="jobType" name="jobType">
+          <option value="">-- Chọn --</option>
+        </select>
+      </div>
+    </div>
+    
+    <div class="form-group autocomplete-wrapper">
+      <label>Địa điểm</label>
+      <input type="text" id="location" name="location" autocomplete="off"
+             placeholder="Nhập địa điểm chụp..."
+             onkeyup="searchLocationAutocomplete(this.value)">
+      <div id="locationAutocomplete" class="autocomplete-results"></div>
+    </div>
+    
+    <div class="form-section-title">💰 Thanh toán</div>
+    
+    <div class="form-row">
+      <div class="form-group">
+        <label>Tổng tiền (VNĐ)</label>
+        <input type="text" id="totalAmount" name="totalAmount" value="0"
+               placeholder="0" inputmode="numeric"
+               oninput="formatCurrencyInput(this)" onchange="calculateRemaining()">
+      </div>
+      <div class="form-group">
+        <label>Đã thanh toán</label>
+        <input type="text" id="paidAmount" name="paidAmount" value="0"
+               placeholder="0" inputmode="numeric"
+               oninput="formatCurrencyInput(this)" onchange="calculateRemaining()">
+      </div>
+    </div>
+    
+    <div class="form-group">
+      <label>Trạng thái Job</label>
+      <select id="jobStatus" name="jobStatus">
+        <option value="Chờ chụp">Chờ chụp</option>
+        <option value="Đang làm">Đang làm</option>
+        <option value="Hoàn thành">Hoàn thành</option>
+        <option value="Đã hủy">Đã hủy</option>
+      </select>
+    </div>
+    
+    <div class="form-group">
+      <label>Link Google Drive (hình final)</label>
+      <input type="url" id="driveLink" name="driveLink" placeholder="https://drive.google.com/...">
+    </div>
+    
+    <div class="form-section-title">🤝 Partner</div>
+    
+    <div class="form-group autocomplete-wrapper">
+      <label>Partner (nếu có)</label>
+      <input type="text" id="partnerName" name="partnerName" autocomplete="off"
+             placeholder="Nhập tên partner..."
+             oninput="handlePartnerInput(this)"
+             onfocus="handlePartnerInput(this)">
+      <input type="hidden" id="partnerId" name="partnerId">
+      <input type="hidden" id="partnerEmail" name="partnerEmail">
+      <div id="partnerAutocomplete" class="autocomplete-results"></div>
+    </div>
+    
+    <div class="form-group">
+      <label>Lương Partner (cho job này)</label>
+      <input type="text" id="partnerFee" name="partnerFee" value="0" 
+             placeholder="0" inputmode="numeric"
+             oninput="formatCurrencyInput(this)">
+    </div>
+    
+    <div class="form-group">
+      <label>Ghi chú</label>
+      <textarea id="notes" name="notes" placeholder="Ghi chú thêm về job..."></textarea>
+    </div>
+    
+    <div class="form-actions">
+      <button type="button" class="btn btn-secondary" onclick="closeModal()">Hủy</button>
+      <button type="submit" class="btn btn-primary">💾 Lưu Job</button>
+    </div>
+  </form>
+</script>
+
+<script type="text/html" id="customerFormTemplate">
+  <form id="customerForm" onsubmit="submitCustomerForm(event)">
+    <input type="hidden" id="editCustomerId" name="customerId">
+    
+    <div class="form-group">
+      <label>Tên khách hàng *</label>
+      <input type="text" id="editCustomerName" name="name" required placeholder="Nguyễn Văn A">
+    </div>
+    
+    <div class="form-row">
+      <div class="form-group">
+        <label>Số điện thoại</label>
+        <input type="tel" id="editCustomerPhone" name="phone" placeholder="0901234567">
+      </div>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="editCustomerEmail" name="email" placeholder="email@example.com">
+      </div>
+    </div>
+    
+    <div class="form-group">
+      <label>Địa chỉ</label>
+      <input type="text" id="editCustomerAddress" name="address" placeholder="Số nhà, đường, quận...">
+    </div>
+    
+    <div class="form-group">
+      <label>Ghi chú</label>
+      <textarea id="editCustomerNotes" name="notes" placeholder="Ghi chú về khách hàng..."></textarea>
+    </div>
+    
+    <div class="form-actions">
+      <button type="button" class="btn btn-secondary" onclick="closeModal()">Hủy</button>
+      <button type="submit" class="btn btn-primary">💾 Lưu</button>
+    </div>
+  </form>
+</script>
+
+<script type="text/html" id="partnerFormTemplate">
+  <form id="partnerForm" onsubmit="submitPartnerForm(event)">
+    <input type="hidden" id="editPartnerId" name="partnerId">
+    
+    <div class="form-group">
+      <label>Tên Partner *</label>
+      <input type="text" id="editPartnerName" name="name" required placeholder="Tên partner">
+    </div>
+    
+    <div class="form-row">
+      <div class="form-group">
+        <label>Số điện thoại</label>
+        <input type="tel" id="editPartnerPhone" name="phone" placeholder="0901234567">
+      </div>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="editPartnerEmail" name="email" placeholder="email@example.com">
+      </div>
+    </div>
+    
+    <div class="form-group">
+      <label>Chuyên môn</label>
+      <select id="editPartnerSpecialty" name="specialty">
+        <option value="">-- Chọn --</option>
+        <option value="Photographer">📸 Photographer</option>
+        <option value="Editor">🖥️ Editor</option>
+        <option value="Assistant">🙋 Assistant</option>
+        <option value="Makeup">💄 Makeup</option>
+        <option value="Khác">📌 Khác</option>
+      </select>
+    </div>
+    
+    <div class="form-group">
+      <label>Ghi chú</label>
+      <textarea id="editPartnerNotes" name="notes" placeholder="Ghi chú về partner..."></textarea>
+    </div>
+    
+    <div class="form-actions">
+      <button type="button" class="btn btn-secondary" onclick="closeModal()">Hủy</button>
+      <button type="submit" class="btn btn-primary">💾 Lưu</button>
+    </div>
+  </form>
+</script>
+
+<script type="text/html" id="jobDetailTemplate">
+  <div class="detail-section">
+    <h4>👤 Khách hàng</h4>
+    <div class="detail-row">
+      <span class="label">Tên</span>
+      <span class="value">{customerName}</span>
+    </div>
+    <div class="detail-row">
+      <span class="label">SĐT</span>
+      <span class="value"><a href="tel:{customerPhone}">{customerPhone}</a></span>
+    </div>
+    <div class="detail-row">
+      <span class="label">Email</span>
+      <span class="value"><a href="mailto:{customerEmail}">{customerEmail}</a></span>
+    </div>
+  </div>
+  
+  <div class="detail-section">
+    <h4>📷 Thông tin Job</h4>
+    <div class="detail-row">
+      <span class="label">Mã Job</span>
+      <span class="value">{id}</span>
+    </div>
+    <div class="detail-row">
+      <span class="label">Ngày chụp</span>
+      <span class="value">{shootDate}</span>
+    </div>
+    <div class="detail-row">
+      <span class="label">Địa điểm</span>
+      <span class="value">{location}</span>
+    </div>
+    <div class="detail-row">
+      <span class="label">Loại chụp</span>
+      <span class="value">{jobType}</span>
+    </div>
+    <div class="detail-row">
+      <span class="label">Trạng thái</span>
+      <span class="value">{jobStatus}</span>
+    </div>
+    <div class="detail-row">
+      <span class="label">Link Drive</span>
+      <span class="value"><a href="{driveLink}" target="_blank">📁 Xem hình</a></span>
+    </div>
+  </div>
+  
+  <div class="detail-section">
+    <h4>💰 Thanh toán</h4>
+    <div class="detail-row">
+      <span class="label">Tổng tiền</span>
+      <span class="value">{totalAmount}</span>
+    </div>
+    <div class="detail-row">
+      <span class="label">Đã thanh toán</span>
+      <span class="value text-success">{paidAmount}</span>
+    </div>
+    <div class="detail-row">
+      <span class="label">Còn nợ</span>
+      <span class="value text-danger">{remainingAmount}</span>
+    </div>
+    <div class="detail-row">
+      <span class="label">Trạng thái</span>
+      <span class="value">{paymentStatus}</span>
+    </div>
+  </div>
+  
+  <div class="detail-section">
+    <h4>🤝 Partner</h4>
+    <div class="detail-row">
+      <span class="label">Tên</span>
+      <span class="value">{partnerName}</span>
+    </div>
+    <div class="detail-row">
+      <span class="label">Lương</span>
+      <span class="value">{partnerFee}</span>
+    </div>
+  </div>
+  
+  <div class="detail-section">
+    <h4>📝 Ghi chú</h4>
+    <p style="color: var(--text-secondary); font-size: 0.875rem;">{notes}</p>
+  </div>
+  
+  <div class="form-actions">
+    <button type="button" class="btn btn-danger" onclick="confirmDeleteJob('{id}')">🗑️ Xóa</button>
+    <button type="button" class="btn btn-primary" onclick="editJob('{id}')">✏️ Sửa</button>
+  </div>
+</script>

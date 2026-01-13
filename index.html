@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#6366f1">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📷</text></svg>">
+  <title>Photo Job Manager</title>
+  <?!= include('styles'); ?>
+</head>
+<body>
+  <!-- Setup Screen -->
+  <div id="setupScreen" class="setup-screen">
+    <div class="setup-container">
+      <div class="setup-logo">📷</div>
+      <h1>Photo Job Manager</h1>
+      <p class="setup-subtitle">Kết nối với Google Sheet của bạn</p>
+      
+      <div class="setup-form">
+        <div class="form-group">
+          <label>Link Google Sheet</label>
+          <input type="text" id="spreadsheetUrlInput" placeholder="Dán link Google Sheet của bạn vào đây">
+          <p class="help-text">
+            Ví dụ: https://docs.google.com/spreadsheets/d/.../edit
+          </p>
+        </div>
+        
+        <button class="btn btn-primary btn-block" onclick="connectSpreadsheet()">
+          🔗 Kết nối
+        </button>
+        
+        <div id="setupError" class="setup-error"></div>
+        <div id="setupLoading" class="setup-loading" style="display:none;">
+          <div class="loading"></div>
+          <p>Đang kết nối...</p>
+        </div>
+      </div>
+      
+      <div class="setup-help">
+        <h4>📖 Hướng dẫn</h4>
+        <ol>
+          <li>Tạo một Google Sheet mới</li>
+          <li>Copy link từ thanh địa chỉ trình duyệt</li>
+          <li>Dán link vào ô trên và nhấn Kết nối</li>
+          <li>Cấp quyền truy cập khi được yêu cầu (chỉ lần đầu)</li>
+        </ol>
+        <p style="margin-top: 12px; font-size: 12px; color: #64748b;">
+          💡 Dữ liệu được lưu trực tiếp trên Sheet của bạn. Lịch chụp sẽ được tạo trên Google Calendar của bạn.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main App -->
+  <div id="mainApp" class="app-container" style="display:none;">
+    <!-- Header -->
+    <header class="app-header">
+      <h1>📷 Photo Jobs</h1>
+      <div class="header-actions">
+        <button class="header-btn" onclick="loadDashboard()" title="Refresh">🔄</button>
+        <button class="header-btn" onclick="showShareLink()" title="Chia sẻ">🔗</button>
+        <button class="header-btn" onclick="showSettings()" title="Cài đặt">⚙️</button>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Dashboard Tab -->
+      <div id="dashboard" class="tab-content active">
+        <div class="dashboard-stats" id="dashboardStats">
+          <div class="loading">Đang tải...</div>
+        </div>
+        
+        <div class="section">
+          <h3>📅 Lịch chụp sắp tới</h3>
+          <div id="upcomingJobs" class="upcoming-jobs">
+            <div class="loading">Đang tải...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Jobs Tab -->
+      <div id="jobs" class="tab-content">
+        <div class="search-box">
+          <input type="text" id="jobSearchInput" placeholder="Tìm theo tên, địa điểm..." onkeyup="debounceSearch()">
+        </div>
+        
+        <div class="filters">
+          <select id="filterJobStatus" onchange="filterJobs()">
+            <option value="">Tất cả trạng thái</option>
+            <option value="Chờ chụp">Chờ chụp</option>
+            <option value="Đang làm">Đang làm</option>
+            <option value="Hoàn thành">Hoàn thành</option>
+          </select>
+          <select id="filterPaymentStatus" onchange="filterJobs()">
+            <option value="">Tất cả TT</option>
+            <option value="Chưa thanh toán">Chưa TT</option>
+            <option value="Đã TT một phần">TT một phần</option>
+            <option value="Đã thanh toán hết">Đã TT hết</option>
+          </select>
+        </div>
+        
+        <div id="jobsList" class="items-list">
+          <div class="loading">Đang tải...</div>
+        </div>
+      </div>
+
+      <!-- Customers Tab -->
+      <div id="customers" class="tab-content">
+        <div class="search-box">
+          <input type="text" id="customerSearchInput" placeholder="Tìm khách hàng..." onkeyup="debounceSearchCustomers()">
+        </div>
+        
+        <div id="customersList" class="items-list">
+          <div class="loading">Đang tải...</div>
+        </div>
+      </div>
+
+      <!-- Partners Tab -->
+      <div id="partners" class="tab-content">
+        <div class="search-box">
+          <input type="text" id="partnerSearchInput" placeholder="Tìm partner..." onkeyup="debounceSearchPartners()">
+        </div>
+        
+        <div id="partnersList" class="items-list">
+          <div class="loading">Đang tải...</div>
+        </div>
+      </div>
+
+      <!-- Reports Tab -->
+      <div id="reports" class="tab-content">
+        <?!= include('reports'); ?>
+      </div>
+    </main>
+
+    <!-- Bottom Navigation -->
+    <nav class="nav-tabs">
+      <button class="tab-btn active" data-tab="dashboard">
+        <span class="icon">📊</span>
+        <span class="label">Tổng quan</span>
+      </button>
+      <button class="tab-btn" data-tab="jobs">
+        <span class="icon">📋</span>
+        <span class="label">Jobs</span>
+      </button>
+      <button class="tab-btn" data-tab="customers">
+        <span class="icon">👥</span>
+        <span class="label">Khách</span>
+      </button>
+      <button class="tab-btn" data-tab="partners">
+        <span class="icon">🤝</span>
+        <span class="label">Partner</span>
+      </button>
+      <button class="tab-btn" data-tab="reports">
+        <span class="icon">📈</span>
+        <span class="label">Báo cáo</span>
+      </button>
+    </nav>
+
+    <!-- Floating Action Button -->
+    <button class="fab" id="fabBtn" onclick="handleFabClick()">➕</button>
+  </div>
+
+  <!-- Modal Container -->
+  <div id="modalOverlay" class="modal-overlay" onclick="closeModal()">
+    <div class="modal" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h2 id="modalTitle">Modal Title</h2>
+        <button class="close-btn" onclick="closeModal()">✕</button>
+      </div>
+      <div class="modal-body" id="modalBody">
+        <!-- Dynamic content -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast"></div>
+
+  <!-- Setup Screen Styles -->
+  <style>
+    .setup-screen {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 20px;
+    }
+    
+    .setup-container {
+      background: white;
+      border-radius: 20px;
+      padding: 40px;
+      max-width: 400px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    
+    .setup-logo {
+      font-size: 64px;
+      margin-bottom: 16px;
+    }
+    
+    .setup-container h1 {
+      font-size: 24px;
+      margin-bottom: 8px;
+      color: #1e293b;
+    }
+    
+    .setup-subtitle {
+      color: #64748b;
+      margin-bottom: 32px;
+    }
+    
+    .setup-form {
+      text-align: left;
+    }
+    
+    .setup-form .form-group {
+      margin-bottom: 20px;
+    }
+    
+    .setup-form input {
+      width: 100%;
+      padding: 14px 16px;
+      border: 2px solid #e2e8f0;
+      border-radius: 10px;
+      font-size: 14px;
+    }
+    
+    .setup-form input:focus {
+      outline: none;
+      border-color: #6366f1;
+    }
+    
+    .help-text {
+      font-size: 12px;
+      color: #64748b;
+      margin-top: 8px;
+    }
+    
+    .help-text strong {
+      color: #6366f1;
+    }
+    
+    .btn-block {
+      display: block;
+      width: 100%;
+    }
+    
+    .setup-error {
+      color: #ef4444;
+      font-size: 14px;
+      margin-top: 16px;
+      text-align: center;
+    }
+    
+    .setup-loading {
+      text-align: center;
+      padding: 20px;
+    }
+    
+    .setup-loading .loading {
+      padding: 0;
+    }
+    
+    .setup-loading .loading::before {
+      margin-bottom: 8px;
+    }
+    
+    .setup-help {
+      margin-top: 32px;
+      padding-top: 24px;
+      border-top: 1px solid #e2e8f0;
+      text-align: left;
+    }
+    
+    .setup-help h4 {
+      font-size: 14px;
+      margin-bottom: 12px;
+      color: #1e293b;
+    }
+    
+    .setup-help ol {
+      padding-left: 20px;
+      font-size: 13px;
+      color: #64748b;
+    }
+    
+    .setup-help li {
+      margin-bottom: 8px;
+    }
+    
+    .setup-help strong {
+      color: #1e293b;
+      word-break: break-all;
+    }
+  </style>
+
+  <?!= include('components'); ?>
+  <?!= include('app.js'); ?>
+  <?!= include('autocomplete.js'); ?>
+</body>
+</html>

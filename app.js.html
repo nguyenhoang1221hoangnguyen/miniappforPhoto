@@ -1,0 +1,2612 @@
+<script>
+// Global state
+let allJobs = [];
+let allCustomers = [];
+let allPartners = [];
+let constants = {};
+let customerSearchTimeout;
+let partnerSearchTimeout;
+let jobSearchTimeout;
+let currentTab = 'dashboard';
+let spreadsheetId = null;
+
+// Storage key
+const STORAGE_KEY = 'photoJobManager_spreadsheetId';
+
+// ========================================
+// CACHE SYSTEM - Giảm API latency
+// ========================================
+const CACHE_PREFIX = 'pjm_cache_';
+const CACHE_TTL = 5 * 60 * 1000; // 5 phút
+
+function getCached(key) {
+  try {
+    const cached = localStorage.getItem(CACHE_PREFIX + key);
+    if (!cached) return null;
+    
+    const { data, timestamp } = JSON.parse(cached);
+    if (Date.now() - timestamp > CACHE_TTL) {
+      localStorage.removeItem(CACHE_PREFIX + key);
+      return null;
+    }
+    return data;
+  } catch (e) {
+    return null;
+  }
+}
+
+function setCache(key, data) {
+  try {
+    localStorage.setItem(CACHE_PREFIX + key, JSON.stringify({
+      data,
+      timestamp: Date.now()
+    }));
+  } catch (e) {
+    // localStorage full - clear old cache
+    clearExpiredCache();
+  }
+}
+
+function invalidateCache(key) {
+  if (key) {
+    localStorage.removeItem(CACHE_PREFIX + key);
+  } else {
+    // Clear all cache
+    Object.keys(localStorage)
+      .filter(k => k.startsWith(CACHE_PREFIX))
+      .forEach(k => localStorage.removeItem(k));
+  }
+}
+
+function clearExpiredCache() {
+  Object.keys(localStorage)
+    .filter(k => k.startsWith(CACHE_PREFIX))
+    .forEach(k => {
+      try {
+        const { timestamp } = JSON.parse(localStorage.getItem(k));
+        if (Date.now() - timestamp > CACHE_TTL) {
+          localStorage.removeItem(k);
+        }
+      } catch (e) {
+        localStorage.removeItem(k);
+      }
+    });
+}
+
+// ========================================
+// SKELETON LOADING TEMPLATES
+// ========================================
+function getSkeletonStats(count = 4) {
+  let html = '<div class="dashboard-stats">';
+  for (let i = 0; i < count; i++) {
+    html += `
+      <div class="skeleton-stat-card">
+        <div class="skeleton skeleton-stat-value"></div>
+        <div class="skeleton skeleton-stat-label"></div>
+      </div>
+    `;
+  }
+  html += '</div>';
+  return html;
+}
+
+function getSkeletonList(count = 5) {
+  let html = '';
+  for (let i = 0; i < count; i++) {
+    html += `
+      <div class="skeleton-card">
+        <div class="skeleton-job-item" style="border: none; padding: 0;">
+          <div class="skeleton skeleton-circle"></div>
+          <div class="skeleton-job-content">
+            <div class="skeleton skeleton-line medium"></div>
+            <div class="skeleton skeleton-line short"></div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+  return html;
+}
+
+function getSkeletonUpcoming(count = 3) {
+  let html = '';
+  for (let i = 0; i < count; i++) {
+    html += `
+      <div class="skeleton-card">
+        <div class="skeleton skeleton-line long"></div>
+        <div class="skeleton skeleton-line medium"></div>
+        <div class="skeleton skeleton-line short"></div>
+      </div>
+    `;
+  }
+  return html;
+}
+
+// ========================================
+// EMPTY STATE TEMPLATES
+// ========================================
+const EMPTY_STATES = {
+  jobs: {
+    icon: '📋',
+    title: 'Chưa có Job nào',
+    desc: 'Tạo job đầu tiên để bắt đầu quản lý công việc chụp ảnh của bạn',
+    action: 'Tạo Job mới',
+    onClick: 'showJobForm()'
+  },
+  customers: {
+    icon: '👥',
+    title: 'Chưa có khách hàng',
+    desc: 'Thêm khách hàng để dễ dàng quản lý thông tin liên hệ',
+    action: 'Thêm khách hàng',
+    onClick: 'showCustomerForm()'
+  },
+  partners: {
+    icon: '🤝',
+    title: 'Chưa có partner',
+    desc: 'Thêm partner/cộng tác viên để theo dõi công việc và thanh toán',
+    action: 'Thêm Partner',
+    onClick: 'showPartnerForm()'
+  },
+  upcoming: {
+    icon: '📅',
+    title: 'Không có lịch chụp sắp tới',
+    desc: 'Các job có ngày chụp trong 7 ngày tới sẽ hiển thị ở đây',
+    action: 'Tạo Job mới',
+    onClick: 'showJobForm()'
+  },
+  search: {
+    icon: '🔍',
+    title: 'Không tìm thấy kết quả',
+    desc: 'Thử tìm kiếm với từ khóa khác hoặc xóa bộ lọc',
+    action: null
+  }
+};
+
+function getEmptyState(type, customDesc = null) {
+  const state = EMPTY_STATES[type] || EMPTY_STATES.jobs;
+  return `
+    <div class="empty-state">
+      <div class="empty-state-icon">${state.icon}</div>
+      <div class="empty-state-title">${state.title}</div>
+      <div class="empty-state-desc">${customDesc || state.desc}</div>
+      ${state.action ? `
+        <button class="empty-state-action" onclick="${state.onClick}">
+          ➕ ${state.action}
+        </button>
+      ` : ''}
+    </div>
+  `;
+}
+
+// ========================================
+// FORM VALIDATION
+// ========================================
+const VALIDATION_RULES = {
+  required: (value) => value && value.trim() !== '' ? null : 'Trường này là bắt buộc',
+  email: (value) => {
+    if (!value) return null;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(value) ? null : 'Email không hợp lệ';
+  },
+  phone: (value) => {
+    if (!value) return null;
+    const phoneRegex = /^[0-9]{9,10}$/;
+    return phoneRegex.test(value.replace(/[\s-]/g, '')) ? null : 'Số điện thoại không hợp lệ (9-10 số)';
+  },
+  url: (value) => {
+    if (!value) return null;
+    try {
+      new URL(value);
+      return null;
+    } catch {
+      return 'URL không hợp lệ';
+    }
+  },
+  number: (value) => {
+    if (!value) return null;
+    return !isNaN(parseFloat(value)) ? null : 'Phải là số';
+  },
+  minValue: (min) => (value) => {
+    if (!value) return null;
+    return parseFloat(value) >= min ? null : `Giá trị tối thiểu là ${min}`;
+  }
+};
+
+function validateField(input, rules = []) {
+  const value = input.value;
+  const formGroup = input.closest('.form-group');
+  
+  // Clear previous state
+  formGroup.classList.remove('has-error', 'has-success');
+  const existingError = formGroup.querySelector('.form-error');
+  if (existingError) existingError.remove();
+  
+  // Run validation
+  for (const rule of rules) {
+    const ruleFn = typeof rule === 'function' ? rule : VALIDATION_RULES[rule];
+    if (ruleFn) {
+      const error = ruleFn(value);
+      if (error) {
+        formGroup.classList.add('has-error');
+        const errorEl = document.createElement('div');
+        errorEl.className = 'form-error';
+        errorEl.textContent = error;
+        formGroup.appendChild(errorEl);
+        return false;
+      }
+    }
+  }
+  
+  // Success state (only if has value)
+  if (value && value.trim()) {
+    formGroup.classList.add('has-success');
+  }
+  return true;
+}
+
+function validateForm(formId) {
+  const form = document.getElementById(formId);
+  if (!form) return false;
+  
+  let isValid = true;
+  
+  // Validate required fields
+  form.querySelectorAll('[required]').forEach(input => {
+    if (!validateField(input, ['required'])) {
+      isValid = false;
+    }
+  });
+  
+  // Validate email fields
+  form.querySelectorAll('[type="email"]').forEach(input => {
+    if (!validateField(input, ['email'])) {
+      isValid = false;
+    }
+  });
+  
+  // Validate phone fields
+  form.querySelectorAll('[type="tel"]').forEach(input => {
+    if (!validateField(input, ['phone'])) {
+      isValid = false;
+    }
+  });
+  
+  // Validate URL fields
+  form.querySelectorAll('[type="url"]').forEach(input => {
+    if (!validateField(input, ['url'])) {
+      isValid = false;
+    }
+  });
+  
+  return isValid;
+}
+
+function setupFormValidation(formId) {
+  const form = document.getElementById(formId);
+  if (!form) return;
+  
+  // Real-time validation on blur
+  form.querySelectorAll('input, select, textarea').forEach(input => {
+    input.addEventListener('blur', function() {
+      const rules = [];
+      if (this.required) rules.push('required');
+      if (this.type === 'email') rules.push('email');
+      if (this.type === 'tel') rules.push('phone');
+      if (this.type === 'url') rules.push('url');
+      if (this.type === 'number') rules.push('number');
+      
+      validateField(this, rules);
+    });
+    
+    // Clear error on input
+    input.addEventListener('input', function() {
+      const formGroup = this.closest('.form-group');
+      if (formGroup.classList.contains('has-error')) {
+        formGroup.classList.remove('has-error');
+        const errorEl = formGroup.querySelector('.form-error');
+        if (errorEl) errorEl.remove();
+      }
+    });
+  });
+}
+
+// ========================================
+// PULL TO REFRESH
+// ========================================
+let ptrState = {
+  startY: 0,
+  currentY: 0,
+  pulling: false,
+  refreshing: false,
+  threshold: 80
+};
+
+function initPullToRefresh() {
+  const mainContent = document.querySelector('.main-content');
+  if (!mainContent || !('ontouchstart' in window)) return;
+  
+  // Create indicator
+  let indicator = document.getElementById('ptrIndicator');
+  if (!indicator) {
+    indicator = document.createElement('div');
+    indicator.id = 'ptrIndicator';
+    indicator.className = 'ptr-indicator';
+    indicator.innerHTML = `
+      <div class="ptr-spinner"></div>
+      <span class="ptr-text">Kéo xuống để làm mới</span>
+    `;
+    mainContent.parentNode.insertBefore(indicator, mainContent);
+  }
+  
+  mainContent.addEventListener('touchstart', handleTouchStart, { passive: true });
+  mainContent.addEventListener('touchmove', handleTouchMove, { passive: false });
+  mainContent.addEventListener('touchend', handleTouchEnd, { passive: true });
+}
+
+function handleTouchStart(e) {
+  if (ptrState.refreshing) return;
+  
+  const mainContent = document.querySelector('.main-content');
+  if (mainContent.scrollTop > 0) return;
+  
+  ptrState.startY = e.touches[0].pageY;
+  ptrState.pulling = false;
+}
+
+function handleTouchMove(e) {
+  if (ptrState.refreshing) return;
+  
+  const mainContent = document.querySelector('.main-content');
+  if (mainContent.scrollTop > 0) return;
+  
+  ptrState.currentY = e.touches[0].pageY;
+  const pullDistance = ptrState.currentY - ptrState.startY;
+  
+  if (pullDistance > 0) {
+    e.preventDefault();
+    ptrState.pulling = true;
+    
+    const indicator = document.getElementById('ptrIndicator');
+    const resistance = 0.4;
+    const translateY = Math.min(pullDistance * resistance, ptrState.threshold + 20);
+    
+    mainContent.style.transform = `translateY(${translateY}px)`;
+    indicator.style.transform = `translateY(${translateY}px)`;
+    
+    if (pullDistance * resistance >= ptrState.threshold) {
+      indicator.classList.add('ready');
+      indicator.querySelector('.ptr-text').textContent = 'Thả để làm mới';
+    } else {
+      indicator.classList.remove('ready');
+      indicator.querySelector('.ptr-text').textContent = 'Kéo xuống để làm mới';
+    }
+  }
+}
+
+function handleTouchEnd() {
+  if (!ptrState.pulling || ptrState.refreshing) return;
+  
+  const mainContent = document.querySelector('.main-content');
+  const indicator = document.getElementById('ptrIndicator');
+  const pullDistance = (ptrState.currentY - ptrState.startY) * 0.4;
+  
+  if (pullDistance >= ptrState.threshold) {
+    // Trigger refresh
+    ptrState.refreshing = true;
+    indicator.classList.add('refreshing');
+    indicator.classList.remove('ready');
+    indicator.querySelector('.ptr-text').textContent = 'Đang làm mới...';
+    
+    mainContent.style.transform = 'translateY(60px)';
+    indicator.style.transform = 'translateY(60px)';
+    
+    // Do refresh based on current tab
+    doRefresh().then(() => {
+      finishRefresh();
+    }).catch(() => {
+      finishRefresh();
+    });
+  } else {
+    // Reset
+    mainContent.style.transform = '';
+    indicator.style.transform = '';
+  }
+  
+  ptrState.pulling = false;
+}
+
+function finishRefresh() {
+  const mainContent = document.querySelector('.main-content');
+  const indicator = document.getElementById('ptrIndicator');
+  
+  ptrState.refreshing = false;
+  indicator.classList.remove('refreshing', 'ready');
+  indicator.querySelector('.ptr-text').textContent = 'Kéo xuống để làm mới';
+  
+  mainContent.style.transition = 'transform 0.3s ease';
+  mainContent.style.transform = '';
+  indicator.style.transform = '';
+  
+  setTimeout(() => {
+    mainContent.style.transition = '';
+  }, 300);
+}
+
+function doRefresh() {
+  return new Promise((resolve) => {
+    invalidateCache();
+    
+    switch (currentTab) {
+      case 'dashboard':
+        loadDashboard();
+        break;
+      case 'jobs':
+        loadJobs();
+        break;
+      case 'customers':
+        loadCustomers();
+        break;
+      case 'partners':
+        loadPartners();
+        break;
+      case 'reports':
+        loadRevenueReport('week');
+        break;
+    }
+    
+    // Simulate minimum refresh time for UX
+    setTimeout(resolve, 800);
+  });
+}
+
+// ========================================
+// SUBMIT BUTTON LOCK - Tránh click nhiều lần
+// ========================================
+let isSubmitting = false;
+
+function lockSubmitButton(btn) {
+  if (isSubmitting) return false;
+  isSubmitting = true;
+  if (btn) {
+    btn.disabled = true;
+    btn.dataset.originalText = btn.textContent;
+    btn.textContent = 'Đang xử lý...';
+  }
+  return true;
+}
+
+function unlockSubmitButton(btn) {
+  isSubmitting = false;
+  if (btn) {
+    btn.disabled = false;
+    btn.textContent = btn.dataset.originalText || 'Lưu';
+  }
+}
+
+function getSubmitButton(formId) {
+  const form = document.getElementById(formId);
+  return form ? form.querySelector('button[type="submit"]') : null;
+}
+
+// ========================================
+// INITIALIZATION
+// ========================================
+
+// Initialize app
+document.addEventListener('DOMContentLoaded', function() {
+  clearExpiredCache();
+  checkSetup();
+});
+
+// Check if spreadsheet is configured
+function checkSetup() {
+  spreadsheetId = localStorage.getItem(STORAGE_KEY);
+  
+  if (spreadsheetId) {
+    // Validate the stored ID
+    showSetupLoading(true);
+    google.script.run
+      .withSuccessHandler(function(result) {
+        showSetupLoading(false);
+        if (result.success) {
+          showMainApp();
+        } else {
+          localStorage.removeItem(STORAGE_KEY);
+          showSetupScreen();
+          showSetupError('Spreadsheet không còn truy cập được. Vui lòng kết nối lại.');
+        }
+      })
+      .withFailureHandler(function(error) {
+        showSetupLoading(false);
+        localStorage.removeItem(STORAGE_KEY);
+        showSetupScreen();
+      })
+      .validateSpreadsheetId(spreadsheetId);
+  } else {
+    showSetupScreen();
+  }
+}
+
+// Show setup screen
+function showSetupScreen() {
+  document.getElementById('setupScreen').style.display = 'flex';
+  document.getElementById('mainApp').style.display = 'none';
+}
+
+// Show main app
+function showMainApp() {
+  document.getElementById('setupScreen').style.display = 'none';
+  document.getElementById('mainApp').style.display = 'flex';
+  
+  initTabs();
+  loadConstants();
+  loadDashboard();
+  updateFab();
+  initPullToRefresh();
+  preloadAutocompleteData(); // Preload customers & partners cho autocomplete nhanh
+}
+
+// Extract Spreadsheet ID from URL
+function extractSpreadsheetId(input) {
+  if (!input) return null;
+  
+  // Check if it's already an ID (no slashes, typically 44 chars)
+  if (!input.includes('/') && input.length > 20) {
+    return input;
+  }
+  
+  // Extract from URL: https://docs.google.com/spreadsheets/d/SPREADSHEET_ID/edit
+  const match = input.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+  if (match) {
+    return match[1];
+  }
+  
+  return null;
+}
+
+// Connect to spreadsheet
+function connectSpreadsheet() {
+  const input = document.getElementById('spreadsheetUrlInput');
+  const inputValue = input.value.trim();
+  
+  if (!inputValue) {
+    showSetupError('Vui lòng dán link Google Sheet');
+    return;
+  }
+  
+  const id = extractSpreadsheetId(inputValue);
+  
+  if (!id) {
+    showSetupError('Link không hợp lệ. Vui lòng dán đúng link Google Sheet.');
+    return;
+  }
+  
+  showSetupLoading(true);
+  showSetupError('');
+  
+  google.script.run
+    .withSuccessHandler(function(result) {
+      if (result.success) {
+        if (!result.hasAllSheets) {
+          // Initialize sheets
+          google.script.run
+            .withSuccessHandler(function(initResult) {
+              showSetupLoading(false);
+              if (initResult.success) {
+                spreadsheetId = id;
+                localStorage.setItem(STORAGE_KEY, id);
+                showMainApp();
+              } else {
+                showSetupError(initResult.error || 'Không thể khởi tạo sheets');
+              }
+            })
+            .withFailureHandler(function(error) {
+              showSetupLoading(false);
+              showSetupError('Lỗi: ' + error.message);
+            })
+            .initializeSheetsForUser(id);
+        } else {
+          showSetupLoading(false);
+          spreadsheetId = id;
+          localStorage.setItem(STORAGE_KEY, id);
+          showMainApp();
+        }
+      } else {
+        showSetupLoading(false);
+        showSetupError(result.error);
+      }
+    })
+    .withFailureHandler(function(error) {
+      showSetupLoading(false);
+      showSetupError('Lỗi kết nối: ' + error.message);
+    })
+    .validateSpreadsheetId(id);
+}
+
+function showSetupError(msg) {
+  document.getElementById('setupError').textContent = msg;
+}
+
+function showSetupLoading(show) {
+  document.getElementById('setupLoading').style.display = show ? 'block' : 'none';
+}
+
+// Show settings
+function showSettings() {
+  const html = `
+    <div class="detail-section">
+      <h4>📊 Spreadsheet hiện tại</h4>
+      <div class="detail-row">
+        <span class="label">ID</span>
+        <span class="value" style="font-size: 11px;">${spreadsheetId}</span>
+      </div>
+    </div>
+    
+    <div class="form-actions">
+      <button type="button" class="btn btn-danger" onclick="disconnectSpreadsheet()">🔌 Ngắt kết nối</button>
+    </div>
+  `;
+  
+  document.getElementById('modalBody').innerHTML = html;
+  document.getElementById('modalTitle').textContent = '⚙️ Cài đặt';
+  openModal();
+}
+
+function disconnectSpreadsheet() {
+  if (confirm('Bạn có chắc muốn ngắt kết nối? Dữ liệu vẫn được lưu trong Sheet.')) {
+    localStorage.removeItem(STORAGE_KEY);
+    spreadsheetId = null;
+    closeModal();
+    showSetupScreen();
+  }
+}
+
+// Show Share Link popup
+function showShareLink() {
+  const currentUrl = window.location.href.split('?')[0];
+  
+  const html = `
+    <div class="share-link-content">
+      <div style="text-align: center; margin-bottom: 20px;">
+        <div style="font-size: 48px; margin-bottom: 10px;">🔗</div>
+        <h3 style="margin: 0; color: #1e293b;">Chia sẻ ứng dụng</h3>
+        <p style="color: #64748b; font-size: 13px; margin-top: 8px;">Gửi link này cho bạn bè để họ sử dụng app</p>
+      </div>
+      
+      <div style="background: #f1f5f9; border: 2px solid #e2e8f0; border-radius: 10px; padding: 14px; margin-bottom: 16px;">
+        <input type="text" id="shareUrlInput" value="${currentUrl}" readonly 
+          style="width: 100%; border: none; background: transparent; font-size: 12px; color: #334155; font-family: monospace;">
+      </div>
+      
+      <button type="button" class="btn btn-primary" onclick="copyShareLink()" style="width: 100%; margin-bottom: 10px;">
+        📋 Copy Link
+      </button>
+      
+      <p id="copySuccess" style="color: #10b981; text-align: center; font-weight: 500; display: none;">✅ Đã copy!</p>
+      
+      <div style="background: #fef3c7; border-radius: 8px; padding: 12px; margin-top: 16px;">
+        <p style="margin: 0; font-size: 12px; color: #92400e;">
+          💡 <strong>Lưu ý:</strong> Mỗi người dùng cần có Google Sheet riêng của họ để lưu dữ liệu.
+        </p>
+      </div>
+    </div>
+  `;
+  
+  document.getElementById('modalBody').innerHTML = html;
+  document.getElementById('modalTitle').textContent = '🔗 Chia sẻ';
+  openModal();
+  
+  document.getElementById('shareUrlInput').select();
+}
+
+function copyShareLink() {
+  const input = document.getElementById('shareUrlInput');
+  input.select();
+  input.setSelectionRange(0, 99999);
+  
+  navigator.clipboard.writeText(input.value).then(function() {
+    document.getElementById('copySuccess').style.display = 'block';
+    setTimeout(function() {
+      document.getElementById('copySuccess').style.display = 'none';
+    }, 2000);
+  }).catch(function() {
+    document.execCommand('copy');
+    document.getElementById('copySuccess').style.display = 'block';
+  });
+}
+
+// Handle FAB click based on current tab
+function handleFabClick() {
+  switch(currentTab) {
+    case 'jobs':
+    case 'dashboard':
+      showJobForm();
+      break;
+    case 'customers':
+      showCustomerForm();
+      break;
+    case 'partners':
+      showPartnerForm();
+      break;
+    default:
+      showJobForm();
+  }
+}
+
+// Update FAB visibility
+function updateFab() {
+  const fab = document.getElementById('fabBtn');
+  if (currentTab === 'reports') {
+    fab.style.display = 'none';
+  } else {
+    fab.style.display = 'flex';
+  }
+}
+
+// Tab Navigation
+function initTabs() {
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+      const tabId = this.dataset.tab;
+      currentTab = tabId;
+      
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      this.classList.add('active');
+      
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      document.getElementById(tabId).classList.add('active');
+      
+      updateFab();
+      loadTabData(tabId);
+    });
+  });
+}
+
+function loadTabData(tabId) {
+  switch(tabId) {
+    case 'dashboard':
+      loadDashboard();
+      break;
+    case 'jobs':
+      loadJobs();
+      break;
+    case 'customers':
+      loadCustomers();
+      break;
+    case 'partners':
+      loadPartners();
+      break;
+    case 'reports':
+      initReports();
+      break;
+  }
+}
+
+// Load constants
+function loadConstants() {
+  google.script.run
+    .withSuccessHandler(function(data) {
+      constants = data;
+    })
+    .withFailureHandler(function(error) {
+      console.error('Lỗi tải constants:', error);
+    })
+    .getConstants();
+}
+
+// Dashboard
+function loadDashboard() {
+  if (!spreadsheetId) return;
+  
+  // Show skeleton loading
+  document.getElementById('dashboardStats').innerHTML = getSkeletonStats(4);
+  document.getElementById('upcomingJobs').innerHTML = getSkeletonUpcoming(3);
+  
+  // Batch API: 1 call thay vì 2
+  google.script.run
+    .withSuccessHandler(function(data) {
+      renderDashboard(data.stats);
+      renderUpcomingJobsDirect(data.upcomingJobs);
+    })
+    .withFailureHandler(function(error) {
+      document.getElementById('dashboardStats').innerHTML = `
+        <div class="empty-state">
+          <div class="icon">⚠️</div>
+          <p>Lỗi tải thống kê</p>
+          <button class="btn btn-primary" onclick="loadDashboard()">🔄 Thử lại</button>
+        </div>
+      `;
+      document.getElementById('upcomingJobs').innerHTML = `
+        <div class="empty-state">
+          <div class="icon">⚠️</div>
+          <p>Lỗi tải lịch chụp</p>
+        </div>
+      `;
+    })
+    .getDashboardData(spreadsheetId);
+}
+
+function renderDashboard(stats) {
+  const html = `
+    <div class="stat-card revenue">
+      <div class="value">${formatCurrency(stats.totalRevenue)}</div>
+      <div class="label">Tổng doanh thu</div>
+    </div>
+    <div class="stat-card debt">
+      <div class="value">${formatCurrency(stats.totalDebt)}</div>
+      <div class="label">Công nợ</div>
+    </div>
+    <div class="stat-card jobs">
+      <div class="value">${stats.totalJobs}</div>
+      <div class="label">Tổng Jobs</div>
+    </div>
+    <div class="stat-card upcoming">
+      <div class="value">${stats.upcomingJobsCount || stats.upcomingJobs || 0}</div>
+      <div class="label">Sắp tới</div>
+    </div>
+  `;
+  document.getElementById('dashboardStats').innerHTML = html;
+}
+
+// Render upcoming jobs từ batch API (đã filter sẵn từ server)
+function renderUpcomingJobsDirect(jobs) {
+  if (!jobs || jobs.length === 0) {
+    document.getElementById('upcomingJobs').innerHTML = getEmptyState('upcoming');
+    return;
+  }
+  
+  const html = jobs.map(job => {
+    const date = new Date(job.shootDate);
+    return `
+      <div class="job-item" onclick="showJobDetail('${job.id}')">
+        <div class="date-box">
+          <div class="day">${date.getDate()}</div>
+          <div class="month">T${date.getMonth() + 1}</div>
+        </div>
+        <div class="job-info">
+          <div class="name">${job.customerName}</div>
+          <div class="location">📍 ${job.location || 'Chưa có địa điểm'}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+  
+  document.getElementById('upcomingJobs').innerHTML = html;
+}
+
+function renderUpcomingJobs(jobs) {
+  const now = new Date();
+  const upcoming = jobs.filter(job => {
+    if (!job.shootDate) return false;
+    const shootDate = new Date(job.shootDate);
+    const diffDays = (shootDate - now) / (1000 * 60 * 60 * 24);
+    return diffDays >= 0 && diffDays <= 7;
+  }).slice(0, 5);
+  
+  if (upcoming.length === 0) {
+    document.getElementById('upcomingJobs').innerHTML = getEmptyState('upcoming');
+    return;
+  }
+  
+  const html = upcoming.map(job => {
+    const date = new Date(job.shootDate);
+    return `
+      <div class="job-item" onclick="showJobDetail('${job.id}')">
+        <div class="date-box">
+          <div class="day">${date.getDate()}</div>
+          <div class="month">T${date.getMonth() + 1}</div>
+        </div>
+        <div class="job-info">
+          <div class="name">${job.customerName}</div>
+          <div class="location">📍 ${job.location || 'Chưa có địa điểm'}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+  
+  document.getElementById('upcomingJobs').innerHTML = html;
+}
+
+// Jobs
+function loadJobs(callback) {
+  if (!spreadsheetId) return;
+  
+  // Thử load từ cache trước
+  const cached = getCached('jobs');
+  if (cached) {
+    allJobs = cached;
+    renderJobs(cached);
+  } else {
+    document.getElementById('jobsList').innerHTML = getSkeletonList(5);
+  }
+  
+  // Fetch data mới từ server
+  google.script.run
+    .withSuccessHandler(function(jobs) {
+      allJobs = jobs;
+      setCache('jobs', jobs);
+      renderJobs(jobs);
+      if (callback) callback(jobs);
+    })
+    .withFailureHandler(function(error) {
+      if (!cached) {
+        document.getElementById('jobsList').innerHTML = `
+          <div class="empty-state">
+            <div class="icon">⚠️</div>
+            <p>Lỗi tải dữ liệu: ${error.message || 'Vui lòng thử lại'}</p>
+            <button class="btn btn-primary" onclick="loadJobs()">🔄 Thử lại</button>
+          </div>
+        `;
+      }
+      if (callback) callback(null);
+    })
+    .getAllJobs(spreadsheetId);
+}
+
+function renderJobs(jobs) {
+  if (jobs.length === 0) {
+    document.getElementById('jobsList').innerHTML = getEmptyState('jobs');
+    return;
+  }
+  
+  const html = jobs.map(job => {
+    const statusClass = getStatusClass(job.jobStatus);
+    const paymentClass = getPaymentClass(job.paymentStatus);
+    
+    return `
+      <div class="item-card" onclick="showJobDetail('${job.id}')">
+        <div class="header">
+          <div>
+            <div class="title">${job.customerName}</div>
+            <div class="subtitle">${job.shootDate ? formatDate(job.shootDate) : 'Chưa có ngày'} • ${job.location || 'Chưa có địa điểm'}</div>
+          </div>
+          <div class="amount">${formatCurrency(job.totalAmount)}</div>
+        </div>
+        <div class="meta">
+          <span class="tag ${statusClass}">${job.jobStatus}</span>
+          <span class="tag ${paymentClass}">${job.paymentStatus}</span>
+          ${job.jobType ? `<span class="tag">${job.jobType}</span>` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+  
+  document.getElementById('jobsList').innerHTML = html;
+}
+
+function filterJobs() {
+  const keyword = document.getElementById('jobSearchInput').value;
+  const jobStatus = document.getElementById('filterJobStatus').value;
+  const paymentStatus = document.getElementById('filterPaymentStatus').value;
+  
+  let filtered = allJobs;
+  
+  if (keyword) {
+    const lowerKeyword = keyword.toLowerCase();
+    filtered = filtered.filter(job =>
+      job.customerName.toLowerCase().includes(lowerKeyword) ||
+      (job.location && job.location.toLowerCase().includes(lowerKeyword))
+    );
+  }
+  
+  if (jobStatus) {
+    filtered = filtered.filter(job => job.jobStatus === jobStatus);
+  }
+  
+  if (paymentStatus) {
+    filtered = filtered.filter(job => job.paymentStatus === paymentStatus);
+  }
+  
+  // Show search empty state if filtering returns no results but we have data
+  if (filtered.length === 0 && allJobs.length > 0) {
+    document.getElementById('jobsList').innerHTML = getEmptyState('search');
+    return;
+  }
+  
+  renderJobs(filtered);
+}
+
+function debounceSearch() {
+  clearTimeout(jobSearchTimeout);
+  jobSearchTimeout = setTimeout(filterJobs, 300);
+}
+
+// Job Form
+function showJobForm(jobData = null) {
+  const template = document.getElementById('jobFormTemplate').innerHTML;
+  document.getElementById('modalBody').innerHTML = template;
+  
+  // Xác định title: nếu có id thì là sửa, không thì là thêm mới
+  const isEdit = jobData && jobData.id;
+  document.getElementById('modalTitle').textContent = isEdit ? 'Sửa Job' : 'Thêm Job mới';
+  
+  const jobTypeSelect = document.getElementById('jobType');
+  jobTypeSelect.innerHTML = '<option value="">-- Chọn --</option>';
+  if (constants.jobTypes) {
+    constants.jobTypes.forEach(type => {
+      const option = document.createElement('option');
+      option.value = type;
+      option.textContent = type;
+      jobTypeSelect.appendChild(option);
+    });
+  }
+  
+  if (jobData) {
+    // Hỗ trợ cả jobData từ edit (có id) và pendingJobData (có jobId)
+    document.getElementById('jobId').value = jobData.id || jobData.jobId || '';
+    document.getElementById('customerId').value = jobData.customerId || '';
+    document.getElementById('customerName').value = jobData.customerName || '';
+    document.getElementById('customerPhone').value = jobData.customerPhone || '';
+    document.getElementById('customerEmail').value = jobData.customerEmail || '';
+    document.getElementById('shootDate').value = jobData.shootDate ? jobData.shootDate.replace(' ', 'T') : '';
+    document.getElementById('location').value = jobData.location || '';
+    document.getElementById('jobType').value = jobData.jobType || '';
+    document.getElementById('totalAmount').value = formatNumberWithCommas(jobData.totalAmount || 0);
+    document.getElementById('paidAmount').value = formatNumberWithCommas(jobData.paidAmount || 0);
+    document.getElementById('jobStatus').value = jobData.jobStatus || 'Chờ chụp';
+    document.getElementById('driveLink').value = jobData.driveLink || '';
+    document.getElementById('partnerId').value = jobData.partnerId || '';
+    document.getElementById('partnerName').value = jobData.partnerName || '';
+    document.getElementById('partnerFee').value = formatNumberWithCommas(jobData.partnerFee || 0);
+    document.getElementById('notes').value = jobData.notes || '';
+  }
+  
+  // Setup form validation
+  setupFormValidation('jobForm');
+  
+  openModal();
+}
+
+function submitJobForm(e) {
+  e.preventDefault();
+  
+  // Validate form before submit
+  if (!validateForm('jobForm')) {
+    showToast('Vui lòng kiểm tra lại thông tin', 'error');
+    return;
+  }
+  
+  const btn = e.target.querySelector('button[type="submit"]');
+  if (!lockSubmitButton(btn)) return;
+  
+  const jobId = document.getElementById('jobId').value;
+  const jobData = {
+    customerId: document.getElementById('customerId').value,
+    customerName: document.getElementById('customerName').value,
+    customerPhone: document.getElementById('customerPhone').value,
+    customerEmail: document.getElementById('customerEmail').value,
+    shootDate: document.getElementById('shootDate').value,
+    location: document.getElementById('location').value,
+    jobType: document.getElementById('jobType').value,
+    totalAmount: parseFormattedNumber(document.getElementById('totalAmount').value),
+    paidAmount: parseFormattedNumber(document.getElementById('paidAmount').value),
+    jobStatus: document.getElementById('jobStatus').value,
+    driveLink: document.getElementById('driveLink').value,
+    partnerId: document.getElementById('partnerId').value,
+    partnerName: document.getElementById('partnerName').value,
+    partnerEmail: document.getElementById('partnerEmail') ? document.getElementById('partnerEmail').value : '',
+    partnerFee: parseFormattedNumber(document.getElementById('partnerFee').value),
+    notes: document.getElementById('notes').value
+  };
+  
+  showLoading();
+  
+  const handleResult = function(result) {
+    unlockSubmitButton(btn);
+    handleJobSaved(result);
+  };
+  const handleErr = function(error) {
+    unlockSubmitButton(btn);
+    hideLoading();
+    handleError(error);
+  };
+  
+  if (jobId) {
+    google.script.run
+      .withSuccessHandler(handleResult)
+      .withFailureHandler(handleErr)
+      .updateJob(jobId, jobData, spreadsheetId);
+  } else {
+    google.script.run
+      .withSuccessHandler(handleResult)
+      .withFailureHandler(handleErr)
+      .addJob(jobData, spreadsheetId);
+  }
+}
+
+function handleJobSaved(result) {
+  hideLoading();
+  if (result.success) {
+    showToast(result.message, 'success');
+    closeModal();
+    // Invalidate cache vì data đã thay đổi
+    invalidateCache('jobs');
+    invalidateCache('customers');
+    invalidateCache('partners');
+    loadJobs();
+    loadDashboard();
+  } else {
+    showToast(result.message, 'error');
+  }
+}
+
+function showJobDetail(jobId) {
+  const job = allJobs.find(j => j.id === jobId);
+  if (!job) return;
+  
+  // Hiển thị loading
+  document.getElementById('modalBody').innerHTML = '<div class="loading-spinner" style="padding: 40px; text-align: center;">Đang tải...</div>';
+  document.getElementById('modalTitle').textContent = `Job ${job.id}`;
+  openModal();
+  
+  // Fetch payment summary only (không cần load lại job từ backend)
+  google.script.run
+    .withSuccessHandler(function(summary) {
+      renderJobDetailWithPayments(job, summary);
+    })
+    .withFailureHandler(function(error) {
+      // Fallback: render without payment history
+      renderJobDetailWithPayments(job, null);
+    })
+    .getPaymentSummaryOnly(jobId, spreadsheetId);
+}
+
+function renderJobDetailWithPayments(job, paymentSummary) {
+  const customerPayments = paymentSummary?.customer?.payments || [];
+  const partnerPayments = paymentSummary?.partner?.payments || [];
+  const partnerPaid = paymentSummary?.partner?.paid || 0;
+  const partnerRemaining = paymentSummary?.partner?.remaining || (job.partnerFee || 0);
+  
+  // Render customer payment history
+  let customerPaymentHtml = '';
+  if (customerPayments.length > 0) {
+    customerPaymentHtml = `
+      <div class="payment-history">
+        <div class="payment-history-title">📋 Lịch sử thanh toán</div>
+        ${customerPayments.map(p => `
+          <div class="payment-item">
+            <div class="payment-item-info">
+              <span class="payment-type-badge">${p.paymentType}</span>
+              <span class="payment-date">${formatDate(p.paymentDate)}</span>
+              <span class="payment-method">${p.paymentMethod}</span>
+            </div>
+            <div class="payment-item-amount">+${formatCurrency(p.amount)}</div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+  
+  // Render partner payment history
+  let partnerPaymentHtml = '';
+  if (partnerPayments.length > 0) {
+    partnerPaymentHtml = `
+      <div class="payment-history">
+        <div class="payment-history-title">📋 Đã thanh toán</div>
+        ${partnerPayments.map(p => `
+          <div class="payment-item">
+            <div class="payment-item-info">
+              <span class="payment-type-badge">${p.paymentType}</span>
+              <span class="payment-date">${formatDate(p.paymentDate)}</span>
+            </div>
+            <div class="payment-item-amount">-${formatCurrency(p.amount)}</div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+  
+  const html = `
+    <div class="detail-section">
+      <h4>👤 Khách hàng</h4>
+      <div class="detail-row">
+        <span class="label">Tên</span>
+        <span class="value">${job.customerName || '-'}</span>
+      </div>
+      <div class="detail-row">
+        <span class="label">SĐT</span>
+        <span class="value"><a href="tel:${job.customerPhone}">${job.customerPhone || '-'}</a></span>
+      </div>
+      <div class="detail-row">
+        <span class="label">Email</span>
+        <span class="value"><a href="mailto:${job.customerEmail}">${job.customerEmail || '-'}</a></span>
+      </div>
+    </div>
+    
+    <div class="detail-section">
+      <h4>📷 Thông tin Job</h4>
+      <div class="detail-row">
+        <span class="label">Mã Job</span>
+        <span class="value">${job.id}</span>
+      </div>
+      <div class="detail-row">
+        <span class="label">Ngày chụp</span>
+        <span class="value">${job.shootDate ? formatDate(job.shootDate) : '-'}</span>
+      </div>
+      <div class="detail-row">
+        <span class="label">Địa điểm</span>
+        <span class="value">${job.location || '-'}</span>
+      </div>
+      <div class="detail-row">
+        <span class="label">Loại chụp</span>
+        <span class="value">${job.jobType || '-'}</span>
+      </div>
+      <div class="detail-row">
+        <span class="label">Trạng thái</span>
+        <span class="value">${job.jobStatus || '-'}</span>
+      </div>
+      ${job.driveLink ? `
+      <div class="detail-row">
+        <span class="label">Link Drive</span>
+        <span class="value"><a href="${job.driveLink}" target="_blank">📁 Xem hình</a></span>
+      </div>
+      ` : ''}
+    </div>
+    
+    <div class="detail-section">
+      <h4>💰 Thanh toán từ khách</h4>
+      <div class="detail-row">
+        <span class="label">Tổng tiền</span>
+        <span class="value">${formatCurrency(job.totalAmount)}</span>
+      </div>
+      <div class="detail-row">
+        <span class="label">Đã thanh toán</span>
+        <span class="value text-success">${formatCurrency(job.paidAmount)}</span>
+      </div>
+      <div class="detail-row">
+        <span class="label">Còn nợ</span>
+        <span class="value text-danger">${formatCurrency(job.remainingAmount)}</span>
+      </div>
+      <div class="detail-row">
+        <span class="label">Trạng thái</span>
+        <span class="value">${job.paymentStatus || '-'}</span>
+      </div>
+      ${customerPaymentHtml}
+      <button type="button" class="btn btn-sm btn-outline" onclick="showAddPaymentForm('${job.id}', 'customer', ${job.remainingAmount || 0})">
+        ➕ Ghi nhận thanh toán
+      </button>
+    </div>
+    
+    ${job.partnerName ? `
+    <div class="detail-section">
+      <h4>🤝 Partner: ${job.partnerName}</h4>
+      <div class="detail-row">
+        <span class="label">Lương job này</span>
+        <span class="value">${formatCurrency(job.partnerFee)}</span>
+      </div>
+      <div class="detail-row">
+        <span class="label">Đã trả</span>
+        <span class="value text-success">${formatCurrency(partnerPaid)}</span>
+      </div>
+      <div class="detail-row">
+        <span class="label">Còn nợ partner</span>
+        <span class="value text-danger">${formatCurrency(partnerRemaining)}</span>
+      </div>
+      ${partnerPaymentHtml}
+      ${partnerRemaining > 0 ? `
+      <button type="button" class="btn btn-sm btn-outline" onclick="showAddPaymentForm('${job.id}', 'partner', ${partnerRemaining})">
+        ➕ Thanh toán cho Partner
+      </button>
+      ` : ''}
+    </div>
+    ` : ''}
+    
+    ${job.notes ? `
+    <div class="detail-section">
+      <h4>📝 Ghi chú</h4>
+      <p style="color: var(--text-secondary); font-size: 0.875rem;">${job.notes}</p>
+    </div>
+    ` : ''}
+    
+    <div class="form-actions">
+      <button type="button" class="btn btn-danger" onclick="confirmDeleteJob('${job.id}')">🗑️ Xóa</button>
+      <button type="button" class="btn btn-primary" onclick="editJob('${job.id}')">✏️ Sửa</button>
+    </div>
+  `;
+  
+  document.getElementById('modalBody').innerHTML = html;
+}
+
+// Form thêm thanh toán
+function showAddPaymentForm(jobId, paymentFor, suggestedAmount) {
+  const forLabel = paymentFor === 'customer' ? 'từ khách' : 'cho Partner';
+  const paymentTypes = constants.paymentTypes || ['Cọc', 'Đợt 1', 'Đợt 2', 'Hoàn tất', 'Khác'];
+  const paymentMethods = constants.paymentMethods || ['Chuyển khoản', 'Tiền mặt', 'Ví điện tử'];
+  
+  const html = `
+    <form id="paymentForm" onsubmit="submitPaymentForm(event)">
+      <input type="hidden" id="paymentJobId" value="${jobId}">
+      <input type="hidden" id="paymentFor" value="${paymentFor}">
+      
+      <div class="form-section-title">💳 Ghi nhận thanh toán ${forLabel}</div>
+      
+      <div class="form-group">
+        <label>Số tiền *</label>
+        <input type="text" id="paymentAmount" required value="${formatNumberWithCommas(suggestedAmount)}"
+               placeholder="0" inputmode="numeric" oninput="formatCurrencyInput(this)">
+      </div>
+      
+      <div class="form-row">
+        <div class="form-group">
+          <label>Loại thanh toán</label>
+          <select id="paymentType">
+            ${paymentTypes.map(t => `<option value="${t}">${t}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Phương thức</label>
+          <select id="paymentMethod">
+            ${paymentMethods.map(m => `<option value="${m}">${m}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      
+      <div class="form-group">
+        <label>Ngày thanh toán</label>
+        <input type="date" id="paymentDate" value="${new Date().toISOString().split('T')[0]}">
+      </div>
+      
+      <div class="form-group">
+        <label>Ghi chú</label>
+        <input type="text" id="paymentNotes" placeholder="Ghi chú thêm...">
+      </div>
+      
+      <div class="form-actions">
+        <button type="button" class="btn btn-secondary" onclick="showJobDetail('${jobId}')">← Quay lại</button>
+        <button type="submit" class="btn btn-primary">💾 Lưu thanh toán</button>
+      </div>
+    </form>
+  `;
+  
+  document.getElementById('modalBody').innerHTML = html;
+  document.getElementById('modalTitle').textContent = `Thêm thanh toán - Job ${jobId}`;
+}
+
+function submitPaymentForm(event) {
+  event.preventDefault();
+  
+  const paymentData = {
+    jobId: document.getElementById('paymentJobId').value,
+    paymentFor: document.getElementById('paymentFor').value,
+    amount: parseFormattedNumber(document.getElementById('paymentAmount').value),
+    paymentType: document.getElementById('paymentType').value,
+    paymentMethod: document.getElementById('paymentMethod').value,
+    paymentDate: document.getElementById('paymentDate').value,
+    notes: document.getElementById('paymentNotes').value
+  };
+  
+  if (paymentData.amount <= 0) {
+    showToast('Số tiền phải lớn hơn 0', 'error');
+    return;
+  }
+  
+  showLoading();
+  google.script.run
+    .withSuccessHandler(function(result) {
+      hideLoading();
+      if (result.success) {
+        showToast(result.message, 'success');
+        invalidateCache('jobs');
+        // Reload jobs rồi mới show detail với data mới
+        loadJobs(function() {
+          showJobDetail(paymentData.jobId);
+        });
+      } else {
+        showToast(result.message, 'error');
+      }
+    })
+    .withFailureHandler(function(error) {
+      hideLoading();
+      handleError(error);
+    })
+    .addPayment(paymentData, spreadsheetId);
+}
+
+function editJob(jobId) {
+  const job = allJobs.find(j => j.id === jobId);
+  if (job) {
+    showJobForm(job);
+  }
+}
+
+function confirmDeleteJob(jobId) {
+  if (confirm('Bạn có chắc muốn xóa job này?')) {
+    showLoading();
+    google.script.run
+      .withSuccessHandler(function(result) {
+        hideLoading();
+        if (result.success) {
+          invalidateCache('jobs');
+          invalidateCache('customers');
+          invalidateCache('partners');
+          showToast(result.message, 'success');
+          closeModal();
+          loadJobs();
+          loadDashboard();
+        } else {
+          showToast(result.message, 'error');
+        }
+      })
+      .withFailureHandler(function(error) {
+        hideLoading();
+        handleError(error);
+      })
+      .deleteJob(jobId, spreadsheetId);
+  }
+}
+
+// Customers
+function loadCustomers() {
+  if (!spreadsheetId) return;
+  
+  // Thử load từ cache trước
+  const cached = getCached('customers');
+  if (cached) {
+    allCustomers = cached;
+    renderCustomers(cached);
+  } else {
+    document.getElementById('customersList').innerHTML = getSkeletonList(5);
+  }
+  
+  google.script.run
+    .withSuccessHandler(function(customers) {
+      allCustomers = customers;
+      setCache('customers', customers);
+      renderCustomers(customers);
+    })
+    .withFailureHandler(function(error) {
+      if (!cached) {
+        document.getElementById('customersList').innerHTML = `
+          <div class="empty-state">
+            <div class="icon">⚠️</div>
+            <p>Lỗi tải dữ liệu: ${error.message || 'Vui lòng thử lại'}</p>
+            <button class="btn btn-primary" onclick="loadCustomers()">🔄 Thử lại</button>
+          </div>
+        `;
+      }
+    })
+    .getAllCustomers(spreadsheetId);
+}
+
+function renderCustomers(customers) {
+  if (customers.length === 0) {
+    document.getElementById('customersList').innerHTML = getEmptyState('customers');
+    return;
+  }
+  
+  const html = customers.map(customer => `
+    <div class="item-card" onclick="showCustomerDetail('${customer.id}')">
+      <div class="header">
+        <div>
+          <div class="title">${customer.name}</div>
+          <div class="subtitle">${customer.phone || ''} ${customer.email ? '• ' + customer.email : ''}</div>
+        </div>
+        <div>
+          <div class="amount">${customer.totalJobs} jobs</div>
+        </div>
+      </div>
+      <div class="meta">
+        <span>Tổng chi tiêu: ${formatCurrency(customer.totalSpent)}</span>
+      </div>
+    </div>
+  `).join('');
+  
+  document.getElementById('customersList').innerHTML = html;
+}
+
+function debounceSearchCustomers() {
+  clearTimeout(customerSearchTimeout);
+  customerSearchTimeout = setTimeout(() => {
+    const keyword = document.getElementById('customerSearchInput').value.toLowerCase();
+    const filtered = allCustomers.filter(c =>
+      c.name.toLowerCase().includes(keyword) ||
+      (c.phone && c.phone.includes(keyword)) ||
+      (c.email && c.email.toLowerCase().includes(keyword))
+    );
+    
+    // Show search empty state if filtering returns no results but we have data
+    if (filtered.length === 0 && allCustomers.length > 0) {
+      document.getElementById('customersList').innerHTML = getEmptyState('search');
+      return;
+    }
+    
+    renderCustomers(filtered);
+  }, 300);
+}
+
+function showCustomerForm(customerData = null) {
+  const template = document.getElementById('customerFormTemplate').innerHTML;
+  document.getElementById('modalBody').innerHTML = template;
+  document.getElementById('modalTitle').textContent = customerData ? 'Sửa khách hàng' : 'Thêm khách hàng';
+  
+  if (customerData) {
+    document.getElementById('editCustomerId').value = customerData.id;
+    document.getElementById('editCustomerName').value = customerData.name || '';
+    document.getElementById('editCustomerPhone').value = customerData.phone || '';
+    document.getElementById('editCustomerEmail').value = customerData.email || '';
+    document.getElementById('editCustomerAddress').value = customerData.address || '';
+    document.getElementById('editCustomerNotes').value = customerData.notes || '';
+  }
+  
+  // Setup form validation
+  setupFormValidation('customerForm');
+  
+  openModal();
+}
+
+function submitCustomerForm(e) {
+  e.preventDefault();
+  
+  // Validate form before submit
+  if (!validateForm('customerForm')) {
+    showToast('Vui lòng kiểm tra lại thông tin', 'error');
+    return;
+  }
+  
+  const btn = e.target.querySelector('button[type="submit"]');
+  if (!lockSubmitButton(btn)) return;
+  
+  const customerId = document.getElementById('editCustomerId').value;
+  const customerData = {
+    name: document.getElementById('editCustomerName').value,
+    phone: document.getElementById('editCustomerPhone').value,
+    email: document.getElementById('editCustomerEmail').value,
+    address: document.getElementById('editCustomerAddress').value,
+    notes: document.getElementById('editCustomerNotes').value
+  };
+  
+  showLoading();
+  
+  const handleResult = function(result) {
+    unlockSubmitButton(btn);
+    handleCustomerSaved(result);
+  };
+  const handleErr = function(error) {
+    unlockSubmitButton(btn);
+    hideLoading();
+    handleError(error);
+  };
+  
+  if (customerId) {
+    google.script.run
+      .withSuccessHandler(handleResult)
+      .withFailureHandler(handleErr)
+      .updateCustomer(customerId, customerData, spreadsheetId);
+  } else {
+    google.script.run
+      .withSuccessHandler(handleResult)
+      .withFailureHandler(handleErr)
+      .addCustomer(customerData, spreadsheetId);
+  }
+}
+
+function handleCustomerSaved(result) {
+  hideLoading();
+  if (result.success) {
+    showToast(result.message, 'success');
+    closeModal();
+    invalidateCache('customers');
+    preloadAutocompleteData(); // Reload preloaded data
+    loadCustomers();
+  } else {
+    showToast(result.message, 'error');
+  }
+}
+
+function showCustomerDetail(customerId) {
+  const customer = allCustomers.find(c => c.id === customerId);
+  if (!customer) return;
+  
+  const html = `
+    <div class="detail-section">
+      <h4>👤 Thông tin</h4>
+      <div class="detail-row">
+        <span class="label">Mã KH</span>
+        <span class="value">${customer.id}</span>
+      </div>
+      <div class="detail-row">
+        <span class="label">Tên</span>
+        <span class="value">${customer.name}</span>
+      </div>
+      <div class="detail-row">
+        <span class="label">SĐT</span>
+        <span class="value">${customer.phone || '-'}</span>
+      </div>
+      <div class="detail-row">
+        <span class="label">Email</span>
+        <span class="value">${customer.email || '-'}</span>
+      </div>
+      <div class="detail-row">
+        <span class="label">Địa chỉ</span>
+        <span class="value">${customer.address || '-'}</span>
+      </div>
+    </div>
+    
+    <div class="detail-section">
+      <h4>📊 Thống kê</h4>
+      <div class="detail-row clickable" onclick="showJobsByCustomer('${customer.id}', '${customer.name}')">
+        <span class="label">Tổng jobs</span>
+        <span class="value link-style">${customer.totalJobs} <span class="view-icon">👁️</span></span>
+      </div>
+      <div class="detail-row">
+        <span class="label">Tổng chi tiêu</span>
+        <span class="value">${formatCurrency(customer.totalSpent)}</span>
+      </div>
+    </div>
+    
+    <div class="form-actions">
+      <button type="button" class="btn btn-danger" onclick="confirmDeleteCustomer('${customer.id}')">🗑️ Xóa</button>
+      <button type="button" class="btn btn-primary" onclick="showCustomerForm(allCustomers.find(c => c.id === '${customer.id}'))">✏️ Sửa</button>
+    </div>
+  `;
+  
+  document.getElementById('modalBody').innerHTML = html;
+  document.getElementById('modalTitle').textContent = customer.name;
+  openModal();
+}
+
+function confirmDeleteCustomer(customerId) {
+  if (confirm('Bạn có chắc muốn xóa khách hàng này?')) {
+    showLoading();
+    google.script.run
+      .withSuccessHandler(function(result) {
+        hideLoading();
+        if (result.success) {
+          invalidateCache('customers');
+          showToast(result.message, 'success');
+          closeModal();
+          loadCustomers();
+        } else {
+          showToast(result.message, 'error');
+        }
+      })
+      .withFailureHandler(function(error) {
+        hideLoading();
+        handleError(error);
+      })
+      .deleteCustomer(customerId, spreadsheetId);
+  }
+}
+
+// Partners
+function loadPartners() {
+  if (!spreadsheetId) return;
+  
+  // Thử load từ cache trước
+  const cached = getCached('partners');
+  if (cached) {
+    allPartners = cached;
+    renderPartners(cached);
+  } else {
+    document.getElementById('partnersList').innerHTML = getSkeletonList(5);
+  }
+  
+  google.script.run
+    .withSuccessHandler(function(partners) {
+      allPartners = partners;
+      setCache('partners', partners);
+      renderPartners(partners);
+    })
+    .withFailureHandler(function(error) {
+      if (!cached) {
+        document.getElementById('partnersList').innerHTML = `
+          <div class="empty-state">
+            <div class="icon">⚠️</div>
+            <p>Lỗi tải dữ liệu: ${error.message || 'Vui lòng thử lại'}</p>
+            <button class="btn btn-primary" onclick="loadPartners()">🔄 Thử lại</button>
+          </div>
+        `;
+      }
+    })
+    .getAllPartners(spreadsheetId);
+}
+
+function renderPartners(partners) {
+  if (partners.length === 0) {
+    document.getElementById('partnersList').innerHTML = getEmptyState('partners');
+    return;
+  }
+  
+  const html = partners.map(partner => `
+    <div class="item-card" onclick="showPartnerDetail('${partner.id}')">
+      <div class="header">
+        <div>
+          <div class="title">${partner.name}</div>
+          <div class="subtitle">${partner.specialty || ''} ${partner.phone ? '• ' + partner.phone : ''}</div>
+        </div>
+        <div>
+          <div class="amount">${partner.totalJobs} jobs</div>
+        </div>
+      </div>
+      <div class="meta">
+        <span>Tổng lương: ${formatCurrency(partner.totalEarnings)}</span>
+      </div>
+    </div>
+  `).join('');
+  
+  document.getElementById('partnersList').innerHTML = html;
+}
+
+function debounceSearchPartners() {
+  clearTimeout(partnerSearchTimeout);
+  partnerSearchTimeout = setTimeout(() => {
+    const keyword = document.getElementById('partnerSearchInput').value.toLowerCase();
+    const filtered = allPartners.filter(p =>
+      p.name.toLowerCase().includes(keyword) ||
+      (p.phone && p.phone.includes(keyword)) ||
+      (p.specialty && p.specialty.toLowerCase().includes(keyword))
+    );
+    
+    // Show search empty state if filtering returns no results but we have data
+    if (filtered.length === 0 && allPartners.length > 0) {
+      document.getElementById('partnersList').innerHTML = getEmptyState('search');
+      return;
+    }
+    
+    renderPartners(filtered);
+  }, 300);
+}
+
+function showPartnerForm(partnerData = null) {
+  const template = document.getElementById('partnerFormTemplate').innerHTML;
+  document.getElementById('modalBody').innerHTML = template;
+  document.getElementById('modalTitle').textContent = partnerData ? 'Sửa Partner' : 'Thêm Partner';
+  
+  if (partnerData) {
+    document.getElementById('editPartnerId').value = partnerData.id;
+    document.getElementById('editPartnerName').value = partnerData.name || '';
+    document.getElementById('editPartnerPhone').value = partnerData.phone || '';
+    document.getElementById('editPartnerEmail').value = partnerData.email || '';
+    document.getElementById('editPartnerSpecialty').value = partnerData.specialty || '';
+    document.getElementById('editPartnerNotes').value = partnerData.notes || '';
+  }
+  
+  // Setup form validation
+  setupFormValidation('partnerForm');
+  
+  openModal();
+}
+
+function submitPartnerForm(e) {
+  e.preventDefault();
+  
+  // Validate form before submit
+  if (!validateForm('partnerForm')) {
+    showToast('Vui lòng kiểm tra lại thông tin', 'error');
+    return;
+  }
+  
+  const btn = e.target.querySelector('button[type="submit"]');
+  if (!lockSubmitButton(btn)) return;
+  
+  const partnerId = document.getElementById('editPartnerId').value;
+  const partnerData = {
+    name: document.getElementById('editPartnerName').value,
+    phone: document.getElementById('editPartnerPhone').value,
+    email: document.getElementById('editPartnerEmail').value,
+    specialty: document.getElementById('editPartnerSpecialty').value,
+    notes: document.getElementById('editPartnerNotes').value
+  };
+  
+  showLoading();
+  
+  const handleResult = function(result) {
+    unlockSubmitButton(btn);
+    handlePartnerSaved(result);
+  };
+  const handleErr = function(error) {
+    unlockSubmitButton(btn);
+    hideLoading();
+    handleError(error);
+  };
+  
+  if (partnerId) {
+    google.script.run
+      .withSuccessHandler(handleResult)
+      .withFailureHandler(handleErr)
+      .updatePartner(partnerId, partnerData, spreadsheetId);
+  } else {
+    google.script.run
+      .withSuccessHandler(handleResult)
+      .withFailureHandler(handleErr)
+      .addPartner(partnerData, spreadsheetId);
+  }
+}
+
+function handlePartnerSaved(result) {
+  hideLoading();
+  if (result.success) {
+    showToast(result.message, 'success');
+    closeModal();
+    invalidateCache('partners');
+    preloadAutocompleteData(); // Reload preloaded data
+    loadPartners();
+  } else {
+    showToast(result.message, 'error');
+  }
+}
+
+function showPartnerDetail(partnerId) {
+  const partner = allPartners.find(p => p.id === partnerId);
+  if (!partner) return;
+  
+  // Hiển thị loading
+  document.getElementById('modalBody').innerHTML = '<div class="loading-spinner" style="padding: 40px; text-align: center;">Đang tải...</div>';
+  document.getElementById('modalTitle').textContent = partner.name;
+  openModal();
+  
+  // Fetch payment summary cho partner
+  google.script.run
+    .withSuccessHandler(function(paymentInfo) {
+      renderPartnerDetailWithPayments(partner, paymentInfo);
+    })
+    .withFailureHandler(function(error) {
+      renderPartnerDetailWithPayments(partner, null);
+    })
+    .getPaymentsByPartnerId(partnerId, spreadsheetId);
+}
+
+function renderPartnerDetailWithPayments(partner, paymentInfo) {
+  const totalFee = paymentInfo?.totalFee || partner.totalEarnings || 0;
+  const totalPaid = paymentInfo?.totalPaid || 0;
+  const totalRemaining = paymentInfo?.totalRemaining || totalFee;
+  const jobs = paymentInfo?.jobs || [];
+  
+  // Render danh sách jobs với thanh toán
+  let jobsPaymentHtml = '';
+  if (jobs.length > 0) {
+    jobsPaymentHtml = `
+      <div class="payment-history" style="margin-top: 12px;">
+        <div class="payment-history-title">📋 Chi tiết theo Job</div>
+        ${jobs.map(j => `
+          <div class="payment-item" style="flex-direction: column; align-items: flex-start;">
+            <div class="payment-item-info" style="width: 100%; justify-content: space-between;">
+              <span class="payment-type-badge">${j.jobId}</span>
+              <span>${j.customerName}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; width: 100%; margin-top: 4px; font-size: 0.8125rem;">
+              <span>Lương: ${formatCurrency(j.fee)}</span>
+              <span class="text-success">Đã trả: ${formatCurrency(j.paid)}</span>
+              <span class="text-danger">Nợ: ${formatCurrency(j.remaining)}</span>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+  
+  const html = `
+    <div class="detail-section">
+      <h4>🤝 Thông tin</h4>
+      <div class="detail-row">
+        <span class="label">Mã Partner</span>
+        <span class="value">${partner.id}</span>
+      </div>
+      <div class="detail-row">
+        <span class="label">Tên</span>
+        <span class="value">${partner.name}</span>
+      </div>
+      <div class="detail-row">
+        <span class="label">SĐT</span>
+        <span class="value"><a href="tel:${partner.phone}">${partner.phone || '-'}</a></span>
+      </div>
+      <div class="detail-row">
+        <span class="label">Email</span>
+        <span class="value"><a href="mailto:${partner.email}">${partner.email || '-'}</a></span>
+      </div>
+      <div class="detail-row">
+        <span class="label">Chuyên môn</span>
+        <span class="value">${partner.specialty || '-'}</span>
+      </div>
+    </div>
+    
+    <div class="detail-section">
+      <h4>📊 Thống kê</h4>
+      <div class="detail-row clickable" onclick="showJobsByPartner('${partner.id}', '${partner.name}')">
+        <span class="label">Tổng jobs</span>
+        <span class="value link-style">${partner.totalJobs} <span class="view-icon">👁️</span></span>
+      </div>
+      <div class="detail-row">
+        <span class="label">Tổng lương</span>
+        <span class="value">${formatCurrency(totalFee)}</span>
+      </div>
+      <div class="detail-row">
+        <span class="label">Đã thanh toán</span>
+        <span class="value text-success">${formatCurrency(totalPaid)}</span>
+      </div>
+      <div class="detail-row">
+        <span class="label">Còn nợ partner</span>
+        <span class="value text-danger">${formatCurrency(totalRemaining)}</span>
+      </div>
+      ${jobsPaymentHtml}
+    </div>
+    
+    <div class="form-actions">
+      <button type="button" class="btn btn-danger" onclick="confirmDeletePartner('${partner.id}')">🗑️ Xóa</button>
+      <button type="button" class="btn btn-primary" onclick="showPartnerForm(allPartners.find(p => p.id === '${partner.id}'))">✏️ Sửa</button>
+    </div>
+  `;
+  
+  document.getElementById('modalBody').innerHTML = html;
+}
+
+function confirmDeletePartner(partnerId) {
+  if (confirm('Bạn có chắc muốn xóa partner này?')) {
+    showLoading();
+    google.script.run
+      .withSuccessHandler(function(result) {
+        hideLoading();
+        if (result.success) {
+          invalidateCache('partners');
+          showToast(result.message, 'success');
+          closeModal();
+          loadPartners();
+        } else {
+          showToast(result.message, 'error');
+        }
+      })
+      .withFailureHandler(function(error) {
+        hideLoading();
+        handleError(error);
+      })
+      .deletePartner(partnerId, spreadsheetId);
+  }
+}
+
+// ========================================
+// JOBS BY CUSTOMER/PARTNER POPUP
+// ========================================
+
+// Lưu context để quay lại
+let jobsPopupContext = null;
+
+function showJobsByCustomer(customerId, customerName) {
+  jobsPopupContext = { type: 'customer', id: customerId, name: customerName };
+  
+  // Filter jobs từ allJobs (đã load sẵn)
+  let jobs = allJobs.filter(job => job.customerId === customerId);
+  
+  // Nếu chưa có allJobs, fetch từ server
+  if (allJobs.length === 0) {
+    showLoading();
+    google.script.run
+      .withSuccessHandler(function(fetchedJobs) {
+        hideLoading();
+        allJobs = fetchedJobs;
+        jobs = fetchedJobs.filter(job => job.customerId === customerId);
+        renderJobsPopup(jobs, customerName, 'customer');
+      })
+      .withFailureHandler(function(error) {
+        hideLoading();
+        showToast('Lỗi tải danh sách jobs', 'error');
+      })
+      .getAllJobs(spreadsheetId);
+  } else {
+    renderJobsPopup(jobs, customerName, 'customer');
+  }
+}
+
+function showJobsByPartner(partnerId, partnerName) {
+  jobsPopupContext = { type: 'partner', id: partnerId, name: partnerName };
+  
+  // Filter jobs từ allJobs (đã load sẵn)
+  let jobs = allJobs.filter(job => job.partnerId === partnerId);
+  
+  // Nếu chưa có allJobs, fetch từ server
+  if (allJobs.length === 0) {
+    showLoading();
+    google.script.run
+      .withSuccessHandler(function(fetchedJobs) {
+        hideLoading();
+        allJobs = fetchedJobs;
+        jobs = fetchedJobs.filter(job => job.partnerId === partnerId);
+        renderJobsPopup(jobs, partnerName, 'partner');
+      })
+      .withFailureHandler(function(error) {
+        hideLoading();
+        showToast('Lỗi tải danh sách jobs', 'error');
+      })
+      .getAllJobs(spreadsheetId);
+  } else {
+    renderJobsPopup(jobs, partnerName, 'partner');
+  }
+}
+
+function renderJobsPopup(jobs, name, type) {
+  const typeLabel = type === 'customer' ? 'khách hàng' : 'partner';
+  
+  let jobsHtml = '';
+  if (jobs.length === 0) {
+    jobsHtml = `
+      <div class="empty-state" style="padding: 20px;">
+        <div class="icon">📋</div>
+        <p>Chưa có job nào cho ${typeLabel} này</p>
+      </div>
+    `;
+  } else {
+    jobsHtml = jobs.map(job => {
+      const statusClass = getStatusClass(job.jobStatus);
+      const paymentClass = getPaymentClass(job.paymentStatus);
+      return `
+        <div class="job-popup-item" onclick="showJobDetailFromPopup('${job.id}')">
+          <div class="job-popup-header">
+            <span class="job-popup-id">${job.id}</span>
+            <span class="job-popup-amount">${formatCurrency(job.totalAmount)}</span>
+          </div>
+          <div class="job-popup-info">
+            <span>📅 ${job.shootDate ? formatDate(job.shootDate) : 'Chưa có ngày'}</span>
+            <span>📍 ${job.location || 'Chưa có địa điểm'}</span>
+          </div>
+          <div class="job-popup-tags">
+            <span class="tag ${statusClass}">${job.jobStatus}</span>
+            <span class="tag ${paymentClass}">${job.paymentStatus}</span>
+            ${job.jobType ? `<span class="tag">${job.jobType}</span>` : ''}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+  
+  const html = `
+    <div class="jobs-popup-container">
+      <div class="jobs-popup-summary">
+        <span>📋 Tổng: <strong>${jobs.length}</strong> jobs</span>
+        <span>💰 Doanh thu: <strong>${formatCurrency(jobs.reduce((sum, j) => sum + (j.totalAmount || 0), 0))}</strong></span>
+      </div>
+      <div class="jobs-popup-list">
+        ${jobsHtml}
+      </div>
+      <div class="form-actions" style="margin-top: 16px;">
+        <button type="button" class="btn btn-secondary" onclick="goBackToDetail()">← Quay lại</button>
+      </div>
+    </div>
+  `;
+  
+  document.getElementById('modalBody').innerHTML = html;
+  document.getElementById('modalTitle').textContent = `Jobs của ${name}`;
+}
+
+function showJobDetailFromPopup(jobId) {
+  // Lưu context hiện tại để có thể quay lại
+  const currentContext = { ...jobsPopupContext };
+  
+  const job = allJobs.find(j => j.id === jobId);
+  if (!job) return;
+  
+  // Hiển thị job detail với nút quay lại
+  showJobDetailWithBack(job, currentContext);
+}
+
+function showJobDetailWithBack(job, backContext) {
+  const template = document.getElementById('jobDetailTemplate');
+  if (!template) {
+    showJobDetail(job.id);
+    return;
+  }
+  
+  let html = template.innerHTML;
+  
+  // Replace placeholders
+  html = html.replace(/{id}/g, job.id || '');
+  html = html.replace(/{customerName}/g, job.customerName || '-');
+  html = html.replace(/{customerPhone}/g, job.customerPhone || '-');
+  html = html.replace(/{customerEmail}/g, job.customerEmail || '-');
+  html = html.replace(/{shootDate}/g, job.shootDate ? formatDate(job.shootDate) : '-');
+  html = html.replace(/{location}/g, job.location || '-');
+  html = html.replace(/{jobType}/g, job.jobType || '-');
+  html = html.replace(/{jobStatus}/g, job.jobStatus || '-');
+  html = html.replace(/{totalAmount}/g, formatCurrency(job.totalAmount));
+  html = html.replace(/{paidAmount}/g, formatCurrency(job.paidAmount));
+  html = html.replace(/{remainingAmount}/g, formatCurrency(job.remainingAmount));
+  html = html.replace(/{paymentStatus}/g, job.paymentStatus || '-');
+  html = html.replace(/{partnerName}/g, job.partnerName || '-');
+  html = html.replace(/{partnerFee}/g, formatCurrency(job.partnerFee));
+  html = html.replace(/{driveLink}/g, job.driveLink || '');
+  html = html.replace(/{notes}/g, job.notes || '-');
+  
+  // Thêm nút quay lại
+  html += `
+    <div class="form-actions" style="margin-top: 16px; border-top: 1px solid #e2e8f0; padding-top: 16px;">
+      <button type="button" class="btn btn-secondary" onclick="goBackToJobsList()">← Quay lại danh sách</button>
+    </div>
+  `;
+  
+  document.getElementById('modalBody').innerHTML = html;
+  document.getElementById('modalTitle').textContent = `Chi tiết Job ${job.id}`;
+}
+
+function goBackToDetail() {
+  if (!jobsPopupContext) {
+    closeModal();
+    return;
+  }
+  
+  if (jobsPopupContext.type === 'customer') {
+    showCustomerDetail(jobsPopupContext.id);
+  } else {
+    showPartnerDetail(jobsPopupContext.id);
+  }
+  jobsPopupContext = null;
+}
+
+function goBackToJobsList() {
+  if (!jobsPopupContext) {
+    closeModal();
+    return;
+  }
+  
+  if (jobsPopupContext.type === 'customer') {
+    showJobsByCustomer(jobsPopupContext.id, jobsPopupContext.name);
+  } else {
+    showJobsByPartner(jobsPopupContext.id, jobsPopupContext.name);
+  }
+}
+
+// Modal functions
+function openModal() {
+  document.getElementById('modalOverlay').classList.add('active');
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('active');
+}
+
+// Toast notification
+function showToast(message, type = 'success') {
+  const toast = document.getElementById('toast');
+  toast.textContent = message;
+  toast.className = 'toast ' + type + ' show';
+  
+  setTimeout(() => {
+    toast.classList.remove('show');
+  }, 3000);
+}
+
+// Utility functions
+function formatCurrency(amount) {
+  if (!amount) return '0 ₫';
+  return new Intl.NumberFormat('vi-VN', {
+    style: 'currency',
+    currency: 'VND'
+  }).format(amount);
+}
+
+// Format số với dấu phân cách hàng nghìn
+function formatNumberWithCommas(num) {
+  if (!num && num !== 0) return '0';
+  return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+// Parse số từ chuỗi có dấu phân cách
+function parseFormattedNumber(str) {
+  if (!str) return 0;
+  return parseInt(String(str).replace(/,/g, ''), 10) || 0;
+}
+
+// Format input tiền tệ khi người dùng nhập
+function formatCurrencyInput(input) {
+  // Lưu vị trí con trỏ
+  const cursorPos = input.selectionStart;
+  const oldLength = input.value.length;
+  
+  // Chỉ giữ lại số
+  let value = input.value.replace(/[^\d]/g, '');
+  
+  // Xóa số 0 ở đầu (trừ khi chỉ có 0)
+  value = value.replace(/^0+/, '') || '0';
+  
+  // Format với dấu phân cách
+  const formatted = formatNumberWithCommas(value);
+  input.value = formatted;
+  
+  // Điều chỉnh vị trí con trỏ
+  const newLength = formatted.length;
+  const diff = newLength - oldLength;
+  const newPos = Math.max(0, cursorPos + diff);
+  input.setSelectionRange(newPos, newPos);
+}
+
+function formatDate(dateString) {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  return date.toLocaleDateString('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
+function getStatusClass(status) {
+  switch(status) {
+    case 'Chờ chụp': return 'tag-pending';
+    case 'Đang làm': return 'tag-inprogress';
+    case 'Hoàn thành': return 'tag-completed';
+    case 'Đã hủy': return 'tag-cancelled';
+    default: return '';
+  }
+}
+
+function getPaymentClass(status) {
+  switch(status) {
+    case 'Đã thanh toán hết': return 'tag-paid';
+    case 'Chưa thanh toán': return 'tag-unpaid';
+    case 'Đã TT một phần': return 'tag-partial';
+    default: return '';
+  }
+}
+
+function calculateRemaining() {
+  const total = parseFloat(document.getElementById('totalAmount').value) || 0;
+  const paid = parseFloat(document.getElementById('paidAmount').value) || 0;
+}
+
+function showLoading() {
+  document.body.style.cursor = 'wait';
+}
+
+function hideLoading() {
+  document.body.style.cursor = 'default';
+}
+
+function handleError(error) {
+  hideLoading();
+  showToast('Có lỗi xảy ra: ' + error.message, 'error');
+  console.error(error);
+}
+
+// Reports
+function initReports() {
+  if (!spreadsheetId) return;
+  loadRevenueReport('month', document.querySelector('#revenueReport .period-btn.active'));
+  loadCustomersForReport();
+  loadPartnersForReport();
+}
+
+function changeReportType() {
+  const type = document.getElementById('reportType').value;
+  document.querySelectorAll('.report-section').forEach(s => s.classList.remove('active'));
+  document.getElementById(type + 'Report').classList.add('active');
+  
+  switch(type) {
+    case 'revenue':
+      loadRevenueReport('month', null);
+      break;
+    case 'payment':
+      loadPaymentReport();
+      break;
+    case 'customer':
+      loadCustomerReport();
+      break;
+    case 'partner':
+      loadPartnerReport();
+      break;
+  }
+}
+
+function loadRevenueReport(period, btn) {
+  if (!spreadsheetId) return;
+  
+  document.querySelectorAll('#revenueReport .period-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  
+  document.getElementById('revenueStats').innerHTML = '<div class="loading">Đang tải...</div>';
+  
+  google.script.run
+    .withSuccessHandler(renderRevenueReport)
+    .withFailureHandler(handleError)
+    .getRevenueReport(period, spreadsheetId);
+}
+
+function renderRevenueReport(data) {
+  const statsHtml = `
+    <div class="report-stat-card highlight">
+      <div class="value">${formatCurrency(data.totalRevenue)}</div>
+      <div class="label">Doanh thu</div>
+    </div>
+    <div class="report-stat-card">
+      <div class="value">${formatCurrency(data.totalPaid)}</div>
+      <div class="label">Đã thu</div>
+    </div>
+    <div class="report-stat-card">
+      <div class="value">${formatCurrency(data.totalDebt)}</div>
+      <div class="label">Công nợ</div>
+    </div>
+    <div class="report-stat-card">
+      <div class="value">${formatCurrency(data.netProfit)}</div>
+      <div class="label">Lợi nhuận</div>
+    </div>
+  `;
+  document.getElementById('revenueStats').innerHTML = statsHtml;
+  
+  const maxRevenue = Math.max(...Object.values(data.byJobType).map(v => v.revenue));
+  let chartHtml = '<h4>Theo loại chụp</h4>';
+  for (const [type, stats] of Object.entries(data.byJobType)) {
+    if (stats.count > 0) {
+      const percentage = maxRevenue > 0 ? (stats.revenue / maxRevenue * 100) : 0;
+      chartHtml += `
+        <div class="chart-bar">
+          <span class="label">${type}</span>
+          <div class="bar-wrapper">
+            <div class="bar" style="width: ${percentage}%">
+              <span>${stats.count} jobs</span>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+  }
+  document.getElementById('revenueByType').innerHTML = chartHtml;
+  
+  let listHtml = '<h4>Danh sách Jobs</h4>';
+  data.jobs.slice(0, 10).forEach(job => {
+    listHtml += `
+      <div class="report-job-item">
+        <div class="info">
+          <div class="name">${job.customerName}</div>
+          <div class="date">${formatDate(job.shootDate)}</div>
+        </div>
+        <div class="amount">${formatCurrency(job.totalAmount)}</div>
+      </div>
+    `;
+  });
+  document.getElementById('revenueJobsList').innerHTML = listHtml;
+}
+
+function loadPaymentReport() {
+  if (!spreadsheetId) return;
+  
+  const status = document.getElementById('paymentStatusFilter').value;
+  const period = document.getElementById('paymentPeriodFilter').value;
+  
+  google.script.run
+    .withSuccessHandler(renderPaymentReport)
+    .withFailureHandler(function(error) {
+      document.getElementById('paymentStats').innerHTML = `
+        <div class="empty-state">
+          <div class="icon">⚠️</div>
+          <p>Lỗi tải báo cáo: ${error.message || 'Vui lòng thử lại'}</p>
+        </div>
+      `;
+    })
+    .getPaymentReport(status, period, spreadsheetId);
+}
+
+function renderPaymentReport(data) {
+  const statsHtml = `
+    <div class="report-stat-card">
+      <div class="value">${data.summary.totalJobs}</div>
+      <div class="label">Số Jobs</div>
+    </div>
+    <div class="report-stat-card">
+      <div class="value">${formatCurrency(data.summary.totalAmount)}</div>
+      <div class="label">Tổng tiền</div>
+    </div>
+    <div class="report-stat-card">
+      <div class="value">${formatCurrency(data.summary.totalPaid)}</div>
+      <div class="label">Đã thu</div>
+    </div>
+    <div class="report-stat-card highlight">
+      <div class="value">${formatCurrency(data.summary.totalDebt)}</div>
+      <div class="label">Còn nợ</div>
+    </div>
+  `;
+  document.getElementById('paymentStats').innerHTML = statsHtml;
+  
+  let listHtml = '<h4>Danh sách</h4>';
+  data.jobs.forEach(job => {
+    listHtml += `
+      <div class="report-job-item">
+        <div class="info">
+          <div class="name">${job.customerName}</div>
+          <div class="date">${job.paymentStatus}</div>
+        </div>
+        <div class="debt">${formatCurrency(job.remainingAmount)}</div>
+      </div>
+    `;
+  });
+  document.getElementById('paymentJobsList').innerHTML = listHtml;
+}
+
+function loadCustomersForReport() {
+  if (!spreadsheetId) return;
+  
+  google.script.run
+    .withSuccessHandler(function(customers) {
+      const select = document.getElementById('customerReportSelect');
+      select.innerHTML = '<option value="">📊 Top khách hàng</option>';
+      customers.forEach(c => {
+        const option = document.createElement('option');
+        option.value = c.id;
+        option.textContent = c.name;
+        select.appendChild(option);
+      });
+    })
+    .withFailureHandler(function(error) {
+      console.error('Lỗi tải customers cho report:', error);
+    })
+    .getAllCustomers(spreadsheetId);
+}
+
+function loadCustomerReport() {
+  if (!spreadsheetId) return;
+  
+  const customerId = document.getElementById('customerReportSelect').value;
+  
+  google.script.run
+    .withSuccessHandler(renderCustomerReport)
+    .withFailureHandler(function(error) {
+      document.getElementById('customerStats').innerHTML = `
+        <div class="empty-state">
+          <div class="icon">⚠️</div>
+          <p>Lỗi tải báo cáo</p>
+        </div>
+      `;
+    })
+    .getCustomerReport(customerId || null, spreadsheetId);
+}
+
+function renderCustomerReport(data) {
+  if (data.topCustomers) {
+    const statsHtml = `
+      <div class="report-stat-card highlight" style="grid-column: span 2;">
+        <div class="value">${data.topCustomers.length}</div>
+        <div class="label">Tổng khách hàng</div>
+      </div>
+    `;
+    document.getElementById('customerStats').innerHTML = statsHtml;
+    
+    let listHtml = '<h4>Top khách hàng</h4>';
+    data.topCustomers.forEach((customer, index) => {
+      const rankClass = index === 0 ? 'gold' : index === 1 ? 'silver' : index === 2 ? 'bronze' : '';
+      listHtml += `
+        <div class="top-customer-item">
+          <div class="rank ${rankClass}">${index + 1}</div>
+          <div class="info">
+            <div class="name">${customer.name}</div>
+            <div class="jobs">${customer.jobCount} jobs</div>
+          </div>
+          <div class="total">${formatCurrency(customer.totalSpent)}</div>
+        </div>
+      `;
+    });
+    document.getElementById('customerJobsList').innerHTML = listHtml;
+  } else if (data.customer) {
+    const statsHtml = `
+      <div class="report-stat-card">
+        <div class="value">${data.totalJobs}</div>
+        <div class="label">Số Jobs</div>
+      </div>
+      <div class="report-stat-card highlight">
+        <div class="value">${formatCurrency(data.totalSpent)}</div>
+        <div class="label">Tổng chi tiêu</div>
+      </div>
+      <div class="report-stat-card">
+        <div class="value">${formatCurrency(data.totalPaid)}</div>
+        <div class="label">Đã thanh toán</div>
+      </div>
+      <div class="report-stat-card">
+        <div class="value">${formatCurrency(data.totalDebt)}</div>
+        <div class="label">Còn nợ</div>
+      </div>
+    `;
+    document.getElementById('customerStats').innerHTML = statsHtml;
+    
+    let listHtml = '<h4>Lịch sử Jobs</h4>';
+    data.jobs.forEach(job => {
+      listHtml += `
+        <div class="report-job-item">
+          <div class="info">
+            <div class="name">${job.jobType || 'Job'}</div>
+            <div class="date">${formatDate(job.shootDate)}</div>
+          </div>
+          <div class="amount">${formatCurrency(job.totalAmount)}</div>
+        </div>
+      `;
+    });
+    document.getElementById('customerJobsList').innerHTML = listHtml;
+  }
+}
+
+function loadPartnersForReport() {
+  if (!spreadsheetId) return;
+  
+  google.script.run
+    .withSuccessHandler(function(partners) {
+      const select = document.getElementById('partnerReportSelect');
+      select.innerHTML = '<option value="">📊 Tất cả Partners</option>';
+      partners.forEach(p => {
+        const option = document.createElement('option');
+        option.value = p.id;
+        option.textContent = p.name;
+        select.appendChild(option);
+      });
+    })
+    .withFailureHandler(function(error) {
+      console.error('Lỗi tải partners cho report:', error);
+    })
+    .getAllPartners(spreadsheetId);
+}
+
+function loadPartnerReport() {
+  if (!spreadsheetId) return;
+  
+  const partnerId = document.getElementById('partnerReportSelect').value;
+  
+  google.script.run
+    .withSuccessHandler(renderPartnerReport)
+    .withFailureHandler(function(error) {
+      document.getElementById('partnerStats').innerHTML = `
+        <div class="empty-state">
+          <div class="icon">⚠️</div>
+          <p>Lỗi tải báo cáo</p>
+        </div>
+      `;
+    })
+    .getPartnerReport(partnerId || null, spreadsheetId);
+}
+
+function renderPartnerReport(data) {
+  if (data.allPartners) {
+    let totalEarnings = data.allPartners.reduce((sum, p) => sum + p.totalEarnings, 0);
+    let totalJobs = data.allPartners.reduce((sum, p) => sum + p.jobCount, 0);
+    
+    const statsHtml = `
+      <div class="report-stat-card">
+        <div class="value">${data.allPartners.length}</div>
+        <div class="label">Tổng Partners</div>
+      </div>
+      <div class="report-stat-card">
+        <div class="value">${totalJobs}</div>
+        <div class="label">Tổng Jobs</div>
+      </div>
+      <div class="report-stat-card highlight" style="grid-column: span 2;">
+        <div class="value">${formatCurrency(totalEarnings)}</div>
+        <div class="label">Tổng chi phí Partner</div>
+      </div>
+    `;
+    document.getElementById('partnerStats').innerHTML = statsHtml;
+    
+    let listHtml = '<h4>Danh sách Partners</h4>';
+    data.allPartners.forEach(partner => {
+      listHtml += `
+        <div class="report-job-item">
+          <div class="info">
+            <div class="name">${partner.name}</div>
+            <div class="date">${partner.specialty || ''} • ${partner.jobCount} jobs</div>
+          </div>
+          <div class="amount">${formatCurrency(partner.totalEarnings)}</div>
+        </div>
+      `;
+    });
+    document.getElementById('partnerJobsList').innerHTML = listHtml;
+  } else if (data.partner) {
+    const statsHtml = `
+      <div class="report-stat-card">
+        <div class="value">${data.totalJobs}</div>
+        <div class="label">Số Jobs</div>
+      </div>
+      <div class="report-stat-card highlight">
+        <div class="value">${formatCurrency(data.totalEarnings)}</div>
+        <div class="label">Tổng lương</div>
+      </div>
+    `;
+    document.getElementById('partnerStats').innerHTML = statsHtml;
+    
+    let listHtml = '<h4>Lịch sử Jobs</h4>';
+    data.jobs.forEach(job => {
+      listHtml += `
+        <div class="report-job-item">
+          <div class="info">
+            <div class="name">${job.customerName}</div>
+            <div class="date">${formatDate(job.shootDate)}</div>
+          </div>
+          <div class="amount">${formatCurrency(job.partnerFee)}</div>
+        </div>
+      `;
+    });
+    document.getElementById('partnerJobsList').innerHTML = listHtml;
+  }
+}
+</script>

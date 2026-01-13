@@ -1,0 +1,101 @@
+Partner_ID,Tên,SĐT,Email,Chuyên môn,Tổng job,Tổng lương,Ghi chú,Ngày tạo,Đã xóa
+PT-001,Trần Minh Quang,0901111111,quang.photo@gmail.com,Photographer,0,0,Chuyên chụp cưới,2024-01-10,FALSE
+PT-002,Lê Thị Hồng,0902222222,hong.edit@yahoo.com,Editor,0,0,Edit video chuyên nghiệp,2024-01-11,FALSE
+PT-003,Nguyễn Văn Hùng,0903333333,hung.assist@gmail.com,Assistant,0,0,Hỗ trợ setup,2024-01-12,FALSE
+PT-004,Phạm Thị Lan,0904444444,lan.makeup@hotmail.com,Makeup,0,0,Makeup cô dâu,2024-01-13,FALSE
+PT-005,Hoàng Đức Anh,0905555555,anh.photo@gmail.com,Photographer,0,0,Chuyên sự kiện,2024-01-14,FALSE
+PT-006,Vũ Thị Mai,0906666666,mai.edit@yahoo.com,Editor,0,0,Chỉnh màu chuyên nghiệp,2024-01-15,FALSE
+PT-007,Đặng Văn Sơn,0907777777,son.assist@gmail.com,Assistant,0,0,Có xe riêng,2024-01-16,FALSE
+PT-008,Bùi Thị Ngọc,0908888888,ngoc.makeup@outlook.com,Makeup,0,0,Makeup sự kiện,2024-01-17,FALSE
+PT-009,Ngô Minh Tuấn,0909999999,tuan.photo@gmail.com,Photographer,0,0,Chụp sản phẩm,2024-01-18,FALSE
+PT-010,Đỗ Thị Hạnh,0910000000,hanh.edit@yahoo.com,Editor,0,0,Retouch chuyên nghiệp,2024-01-19,FALSE
+PT-011,Trịnh Văn Bình,0911111111,binh.photo@gmail.com,Photographer,0,0,Chụp chân dung,2024-01-20,FALSE
+PT-012,Lý Thị Oanh,0912121212,oanh.makeup@hotmail.com,Makeup,0,0,Có đội ngũ,2024-01-21,FALSE
+PT-013,Phan Đức Trung,0913131313,trung.assist@gmail.com,Assistant,0,0,Biết lái drone,2024-01-22,FALSE
+PT-014,Võ Thị Thảo,0914141414,thao.edit@yahoo.com,Editor,0,0,Edit ảnh cưới,2024-01-23,FALSE
+PT-015,Dương Minh Hiếu,0915151515,hieu.photo@outlook.com,Photographer,0,0,Có studio,2024-01-24,FALSE
+PT-016,Hồ Thị Linh,0916161616,linh.makeup@gmail.com,Makeup,0,0,Makeup tự nhiên,2024-01-25,FALSE
+PT-017,Đinh Văn Phúc,0917171717,phuc.assist@yahoo.com,Assistant,0,0,Hỗ trợ ánh sáng,2024-01-26,FALSE
+PT-018,Tô Thị Hương,0918181818,huong.edit@gmail.com,Editor,0,0,Design album,2024-01-27,FALSE
+PT-019,Lương Đức Khang,0919191919,khang.photo@hotmail.com,Photographer,0,0,Chụp outdoor,2024-01-28,FALSE
+PT-020,Chu Thị Vân,0920202020,van.makeup@gmail.com,Makeup,0,0,Makeup cá nhân,2024-01-29,FALSE
+PT-021,Mai Văn Đạt,0921212121,dat.photo@yahoo.com,Photographer,0,0,Chụp thời trang,2024-01-30,FALSE
+PT-022,Trương Thị Yến,0922222222,yen.edit@outlook.com,Editor,0,0,Video editing,2024-01-31,FALSE
+PT-023,Cao Minh Long,0923232323,long.assist@gmail.com,Assistant,0,0,Quay video,2024-02-01,FALSE
+PT-024,Đoàn Thị Ngân,0924242424,ngan.makeup@yahoo.com,Makeup,0,0,Hair styling,2024-02-02,FALSE
+PT-025,Lâm Văn Khánh,0925252525,khanh.photo@gmail.com,Photographer,0,0,Phóng sự cưới,2024-02-03,FALSE
+PT-026,Kiều Thị Hà,0926262626,ha.edit@hotmail.com,Editor,0,0,Color grading,2024-02-04,FALSE
+PT-027,Tăng Đức Mạnh,0927272727,manh.assist@gmail.com,Assistant,0,0,Setup studio,2024-02-05,FALSE
+PT-028,Quách Thị Kim,0928282828,kim.makeup@yahoo.com,Makeup,0,0,Bridal makeup,2024-02-06,FALSE
+PT-029,Mạc Văn Thành,0929292929,thanh.photo@outlook.com,Photographer,0,0,Fine art,2024-02-07,FALSE
+PT-030,Từ Thị Xuân,0930303030,xuan.edit@gmail.com,Editor,0,0,Photo album,2024-02-08,FALSE
+PT-031,Hà Minh Trí,0931313131,tri.photo@yahoo.com,Photographer,0,0,Corporate events,2024-02-09,FALSE
+PT-032,Tạ Thị Phương,0932323232,phuong.makeup@gmail.com,Makeup,0,0,Stage makeup,2024-02-10,FALSE
+PT-033,Nghiêm Văn Vinh,0933333333,vinh.assist@hotmail.com,Assistant,0,0,Equipment rental,2024-02-11,FALSE
+PT-034,Thái Thị Diệu,0934343434,dieu.edit@yahoo.com,Editor,0,0,Motion graphics,2024-02-12,FALSE
+PT-035,La Đức Hoàng,0935353535,hoang.photo@gmail.com,Photographer,0,0,Wedding documentary,2024-02-13,FALSE
+PT-036,Âu Thị Quỳnh,0936363636,quynh.makeup@outlook.com,Makeup,0,0,Korean style,2024-02-14,FALSE
+PT-037,Ông Văn Lộc,0937373737,loc.assist@gmail.com,Assistant,0,0,Transport,2024-02-15,FALSE
+PT-038,Sầm Thị Thúy,0938383838,thuy.edit@yahoo.com,Editor,0,0,Slideshow,2024-02-16,FALSE
+PT-039,Cung Minh Nhật,0939393939,nhat.photo@gmail.com,Photographer,0,0,Pre-wedding,2024-02-17,FALSE
+PT-040,Đào Thị Sen,0940404040,sen.makeup@hotmail.com,Makeup,0,0,Special effects,2024-02-18,FALSE
+PT-041,Ninh Văn Tài,0941414141,tai.photo@yahoo.com,Photographer,0,0,Graduation,2024-02-19,FALSE
+PT-042,Châu Thị Cúc,0942424242,cuc.edit@gmail.com,Editor,0,0,Lightroom preset,2024-02-20,FALSE
+PT-043,Khổng Đức An,0943434343,an.assist@outlook.com,Assistant,0,0,Styling,2024-02-21,FALSE
+PT-044,Mã Thị Bích,0944444444,bich.makeup@gmail.com,Makeup,0,0,Airbrush,2024-02-22,FALSE
+PT-045,Thi Văn Cường,0945454545,cuong.photo@yahoo.com,Photographer,0,0,Portrait,2024-02-23,FALSE
+PT-046,Triệu Thị Dung,0946464646,dung.edit@gmail.com,Editor,0,0,Photoshop,2024-02-24,FALSE
+PT-047,Hứa Minh Em,0947474747,em.assist@hotmail.com,Assistant,0,0,Prop management,2024-02-25,FALSE
+PT-048,Tôn Thị Gấm,0948484848,gam.makeup@yahoo.com,Makeup,0,0,Thai makeup,2024-02-26,FALSE
+PT-049,Tiêu Văn Hải,0949494949,hai.photo@gmail.com,Photographer,0,0,Landscape,2024-02-27,FALSE
+PT-050,Quan Thị Hoa,0950505050,hoa.edit@outlook.com,Editor,0,0,After effects,2024-02-28,FALSE
+PT-051,Sử Đức Kiên,0951515151,kien.photo@gmail.com,Photographer,0,0,Travel photo,2024-03-01,FALSE
+PT-052,Phùng Thị Loan,0952525252,loan.makeup@yahoo.com,Makeup,0,0,Natural look,2024-03-02,FALSE
+PT-053,Trác Văn Minh,0953535353,minh.assist@gmail.com,Assistant,0,0,Coordinator,2024-03-03,FALSE
+PT-054,Ân Thị Như,0954545454,nhu.edit@hotmail.com,Editor,0,0,DaVinci Resolve,2024-03-04,FALSE
+PT-055,Bành Đức Phong,0955555555,phong.photo@yahoo.com,Photographer,0,0,Fashion,2024-03-05,FALSE
+PT-056,Cù Thị Quyên,0956565656,quyen.makeup@gmail.com,Makeup,0,0,Celebrity,2024-03-06,FALSE
+PT-057,Doãn Văn Sang,0957575757,sang.assist@outlook.com,Assistant,0,0,Gaffer,2024-03-07,FALSE
+PT-058,Giáp Thị Tâm,0958585858,tam.edit@gmail.com,Editor,0,0,Premiere Pro,2024-03-08,FALSE
+PT-059,Hạ Minh Uy,0959595959,uy.photo@yahoo.com,Photographer,0,0,Commercial,2024-03-09,FALSE
+PT-060,Kha Thị Vui,0960606060,vui.makeup@gmail.com,Makeup,0,0,HD makeup,2024-03-10,FALSE
+PT-061,Lại Văn Xuân,0961616161,xuan.photo@hotmail.com,Photographer,0,0,Newborn,2024-03-11,FALSE
+PT-062,Mẫn Thị Yến,0962626262,yen.edit@yahoo.com,Editor,0,0,Final Cut,2024-03-12,FALSE
+PT-063,Ngụy Đức Ân,0963636363,an.assist@gmail.com,Assistant,0,0,Best boy,2024-03-13,FALSE
+PT-064,Ôn Thị Bảo,0964646464,bao.makeup@outlook.com,Makeup,0,0,Character makeup,2024-03-14,FALSE
+PT-065,Phí Văn Công,0965656565,cong.photo@gmail.com,Photographer,0,0,Architecture,2024-03-15,FALSE
+PT-066,Quản Thị Diễm,0966666666,diem.edit@yahoo.com,Editor,0,0,Capture One,2024-03-16,FALSE
+PT-067,Sơn Minh Em,0967676767,em.assist@gmail.com,Assistant,0,0,Focus puller,2024-03-17,FALSE
+PT-068,Thạch Thị Giang,0968686868,giang.makeup@hotmail.com,Makeup,0,0,Editorial,2024-03-18,FALSE
+PT-069,Uông Văn Hào,0969696969,hao.photo@yahoo.com,Photographer,0,0,Boudoir,2024-03-19,FALSE
+PT-070,Viên Thị Hương,0970707070,huong.edit@gmail.com,Editor,0,0,Color correction,2024-03-20,FALSE
+PT-071,Xa Đức Khải,0971717171,khai.photo@outlook.com,Photographer,0,0,Street,2024-03-21,FALSE
+PT-072,Yên Thị Lan,0972727272,lan.makeup@gmail.com,Makeup,0,0,Glam,2024-03-22,FALSE
+PT-073,Bạch Văn Minh,0973737373,minh.assist@yahoo.com,Assistant,0,0,Dolly grip,2024-03-23,FALSE
+PT-074,Cầm Thị Ngọc,0974747474,ngoc.edit@gmail.com,Editor,0,0,Sound design,2024-03-24,FALSE
+PT-075,Đường Đức Phát,0975757575,phat.photo@hotmail.com,Photographer,0,0,Food,2024-03-25,FALSE
+PT-076,Gia Thị Quyền,0976767676,quyen.makeup@yahoo.com,Makeup,0,0,Film,2024-03-26,FALSE
+PT-077,Hầu Văn Sang,0977777777,sang.assist@gmail.com,Assistant,0,0,Set designer,2024-03-27,FALSE
+PT-078,Kim Thị Thảo,0978787878,thao.edit@outlook.com,Editor,0,0,VFX,2024-03-28,FALSE
+PT-079,Lục Minh Trung,0979797979,trung.photo@gmail.com,Photographer,0,0,Sports,2024-03-29,FALSE
+PT-080,Nhạc Thị Uyên,0980808080,uyen.makeup@yahoo.com,Makeup,0,0,Vintage,2024-03-30,FALSE
+PT-081,Quách Văn Vinh,0981818181,vinh.photo@gmail.com,Photographer,0,0,Wildlife,2024-03-31,FALSE
+PT-082,Thân Thị Xuyến,0982828282,xuyen.edit@hotmail.com,Editor,0,0,3D compositing,2024-04-01,FALSE
+PT-083,Ung Đức Yên,0983838383,yen.assist@yahoo.com,Assistant,0,0,Rigger,2024-04-02,FALSE
+PT-084,Vi Thị An,0984848484,an.makeup@gmail.com,Makeup,0,0,Period,2024-04-03,FALSE
+PT-085,Xã Văn Bảo,0985858585,bao.photo@outlook.com,Photographer,0,0,Concert,2024-04-04,FALSE
+PT-086,Yết Thị Châu,0986868686,chau.edit@gmail.com,Editor,0,0,Audio mixing,2024-04-05,FALSE
+PT-087,Ấn Minh Dũng,0987878787,dung.assist@yahoo.com,Assistant,0,0,Boom operator,2024-04-06,FALSE
+PT-088,Biện Thị Em,0988888888,em.makeup@gmail.com,Makeup,0,0,Fantasy,2024-04-07,FALSE
+PT-089,Cấn Văn Giang,0989898989,giang.photo@hotmail.com,Photographer,0,0,Real estate,2024-04-08,FALSE
+PT-090,Diêm Thị Hạnh,0990909090,hanh.edit@yahoo.com,Editor,0,0,Subtitles,2024-04-09,FALSE
+PT-091,Giả Đức Khánh,0991919191,khanh.photo@gmail.com,Photographer,0,0,Automotive,2024-04-10,FALSE
+PT-092,Hác Thị Linh,0992929292,linh.makeup@outlook.com,Makeup,0,0,Theatre,2024-04-11,FALSE
+PT-093,Khâu Văn Mạnh,0993939393,manh.assist@gmail.com,Assistant,0,0,Steadicam,2024-04-12,FALSE
+PT-094,Lôi Thị Nhung,0994949494,nhung.edit@yahoo.com,Editor,0,0,Conform,2024-04-13,FALSE
+PT-095,Nhâm Minh Phúc,0995959595,phuc.photo@gmail.com,Photographer,0,0,Headshots,2024-04-14,FALSE
+PT-096,Phương Thị Quỳnh,0996969696,quynh.makeup@hotmail.com,Makeup,0,0,Runway,2024-04-15,FALSE
+PT-097,Sa Văn Sơn,0997979797,son.assist@yahoo.com,Assistant,0,0,DIT,2024-04-16,FALSE
+PT-098,Thường Thị Thúy,0998989898,thuy.edit@gmail.com,Editor,0,0,Transcoding,2024-04-17,FALSE
+PT-099,Uy Đức Việt,0999090909,viet.photo@outlook.com,Photographer,0,0,Abstract,2024-04-18,FALSE
+PT-100,Vương Thị Yến,0990010101,yen.makeup@gmail.com,Makeup,0,0,Prosthetics,2024-04-19,FALSE
