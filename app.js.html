@@ -2609,4 +2609,181 @@ function renderPartnerReport(data) {
     document.getElementById('partnerJobsList').innerHTML = listHtml;
   }
 }
+
+// ========================================
+// PAYMENT FUNCTIONS
+// ========================================
+let currentPaymentJobId = null;
+
+function showPaymentHistory(jobId) {
+  currentPaymentJobId = jobId;
+  const template = document.getElementById('paymentHistoryTemplate').innerHTML;
+  
+  showModal('💰 Lịch sử thanh toán', template);
+  
+  loadPaymentHistory(jobId);
+}
+
+function loadPaymentHistory(jobId) {
+  if (!spreadsheetId) return;
+  
+  google.script.run
+    .withSuccessHandler(renderPaymentHistory)
+    .withFailureHandler(function(error) {
+      showToast('Lỗi tải thanh toán: ' + (error.message || 'Vui lòng thử lại'), 'error');
+    })
+    .getJobPaymentSummary(jobId, spreadsheetId);
+}
+
+function renderPaymentHistory(data) {
+  if (!data) {
+    showToast('Không tìm thấy thông tin job', 'error');
+    return;
+  }
+  
+  // Customer summary
+  document.getElementById('customerTotal').textContent = formatCurrency(data.customer.total);
+  document.getElementById('customerPaid').textContent = formatCurrency(data.customer.paid);
+  document.getElementById('customerRemaining').textContent = formatCurrency(data.customer.remaining);
+  
+  // Partner summary
+  document.getElementById('partnerTotal').textContent = formatCurrency(data.partner.total);
+  document.getElementById('partnerPaid').textContent = formatCurrency(data.partner.paid);
+  document.getElementById('partnerRemaining').textContent = formatCurrency(data.partner.remaining);
+  
+  // Customer payments list
+  renderPaymentList('customerPaymentsList', data.customer.payments);
+  
+  // Partner payments list
+  renderPaymentList('partnerPaymentsList', data.partner.payments);
+}
+
+function renderPaymentList(containerId, payments) {
+  const container = document.getElementById(containerId);
+  
+  if (!payments || payments.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="icon">💰</div>
+        <p>Chưa có thanh toán nào</p>
+      </div>
+    `;
+    return;
+  }
+  
+  let html = '';
+  payments.forEach(payment => {
+    html += `
+      <div class="payment-item">
+        <div class="info">
+          <div class="type">${payment.paymentType} - ${payment.paymentMethod}</div>
+          <div class="date">${formatDate(payment.paymentDate)}</div>
+          ${payment.notes ? `<div class="method">${payment.notes}</div>` : ''}
+        </div>
+        <div class="amount">${formatCurrency(payment.amount)}</div>
+        <button class="delete-btn" onclick="confirmDeletePayment('${payment.id}')" title="Xóa">🗑</button>
+      </div>
+    `;
+  });
+  
+  container.innerHTML = html;
+}
+
+function switchPaymentTab(tab) {
+  // Update tab buttons
+  document.querySelectorAll('.payment-tab').forEach(btn => {
+    btn.classList.remove('active');
+    if (btn.dataset.tab === tab) {
+      btn.classList.add('active');
+    }
+  });
+  
+  // Update tab content
+  document.getElementById('customerPaymentsTab').classList.toggle('active', tab === 'customer');
+  document.getElementById('partnerPaymentsTab').classList.toggle('active', tab === 'partner');
+}
+
+function showAddPaymentForm(paymentFor) {
+  const template = document.getElementById('addPaymentFormTemplate').innerHTML;
+  const title = paymentFor === 'customer' ? '💰 Ghi nhận thanh toán' : '💸 Thanh toán Partner';
+  
+  showModal(title, template);
+  
+  document.getElementById('paymentJobId').value = currentPaymentJobId;
+  document.getElementById('paymentFor').value = paymentFor;
+  
+  // Set default date to today
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('paymentDate').value = today;
+}
+
+function closePaymentForm() {
+  closeModal();
+  showPaymentHistory(currentPaymentJobId);
+}
+
+function submitPaymentForm(event) {
+  event.preventDefault();
+  
+  const form = event.target;
+  const formData = new FormData(form);
+  
+  const data = {
+    jobId: formData.get('jobId'),
+    paymentFor: formData.get('paymentFor'),
+    amount: parseFormattedNumber(formData.get('amount')),
+    paymentType: formData.get('paymentType'),
+    paymentMethod: formData.get('paymentMethod'),
+    paymentDate: formData.get('paymentDate'),
+    notes: formData.get('notes')
+  };
+  
+  if (!data.amount || data.amount <= 0) {
+    showToast('Vui lòng nhập số tiền hợp lệ!', 'error');
+    return;
+  }
+  
+  const submitBtn = form.querySelector('button[type="submit"]');
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Đang lưu...';
+  
+  google.script.run
+    .withSuccessHandler(function(response) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = '💾 Lưu';
+      
+      if (response.success) {
+        showToast(response.message || 'Đã ghi nhận thanh toán!', 'success');
+        invalidateCache();
+        closePaymentForm();
+      } else {
+        showToast(response.message || 'Có lỗi xảy ra!', 'error');
+      }
+    })
+    .withFailureHandler(function(error) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = '💾 Lưu';
+      showToast('Lỗi: ' + (error.message || 'Vui lòng thử lại'), 'error');
+    })
+    .addPayment(data, spreadsheetId);
+}
+
+function confirmDeletePayment(paymentId) {
+  if (!confirm('Xác nhận xóa thanh toán này?')) return;
+  
+  google.script.run
+    .withSuccessHandler(function(response) {
+      if (response.success) {
+        showToast(response.message || 'Đã xóa thanh toán!', 'success');
+        invalidateCache();
+        loadPaymentHistory(currentPaymentJobId);
+      } else {
+        showToast(response.message || 'Có lỗi xảy ra!', 'error');
+      }
+    })
+    .withFailureHandler(function(error) {
+      showToast('Lỗi: ' + (error.message || 'Vui lòng thử lại'), 'error');
+    })
+    .deletePayment(paymentId, spreadsheetId);
+}
 </script>

@@ -276,7 +276,253 @@
   </div>
   
   <div class="form-actions">
+    <button type="button" class="btn btn-secondary" onclick="showPaymentHistory('{id}')">💰 Thanh toán</button>
     <button type="button" class="btn btn-danger" onclick="confirmDeleteJob('{id}')">🗑️ Xóa</button>
     <button type="button" class="btn btn-primary" onclick="editJob('{id}')">✏️ Sửa</button>
   </div>
+</script>
+
+<!-- Payment History Template -->
+<script type="text/html" id="paymentHistoryTemplate">
+  <div class="payment-history-container">
+    <!-- Tab Navigation -->
+    <div class="payment-tabs">
+      <button class="payment-tab active" data-tab="customer" onclick="switchPaymentTab('customer')">
+        💰 Thu từ khách
+      </button>
+      <button class="payment-tab" data-tab="partner" onclick="switchPaymentTab('partner')">
+        💸 Trả Partner
+      </button>
+    </div>
+
+    <!-- Customer Payments Tab -->
+    <div id="customerPaymentsTab" class="payment-tab-content active">
+      <div class="payment-summary">
+        <div class="summary-item">
+          <div class="label">Tổng tiền</div>
+          <div class="value" id="customerTotal">0</div>
+        </div>
+        <div class="summary-item">
+          <div class="label">Đã thu</div>
+          <div class="value success" id="customerPaid">0</div>
+        </div>
+        <div class="summary-item">
+          <div class="label">Còn nợ</div>
+          <div class="value danger" id="customerRemaining">0</div>
+        </div>
+      </div>
+
+      <button class="btn btn-primary btn-block" onclick="showAddPaymentForm('customer')" style="margin-bottom: 16px;">
+        ➕ Ghi nhận thanh toán
+      </button>
+
+      <div id="customerPaymentsList" class="payments-list">
+        <div class="empty-state">
+          <div class="icon">💰</div>
+          <p>Chưa có thanh toán nào</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Partner Payments Tab -->
+    <div id="partnerPaymentsTab" class="payment-tab-content">
+      <div class="payment-summary">
+        <div class="summary-item">
+          <div class="label">Tổng lương</div>
+          <div class="value" id="partnerTotal">0</div>
+        </div>
+        <div class="summary-item">
+          <div class="label">Đã trả</div>
+          <div class="value success" id="partnerPaid">0</div>
+        </div>
+        <div class="summary-item">
+          <div class="label">Còn lại</div>
+          <div class="value danger" id="partnerRemaining">0</div>
+        </div>
+      </div>
+
+      <button class="btn btn-primary btn-block" onclick="showAddPaymentForm('partner')" style="margin-bottom: 16px;">
+        ➕ Thanh toán Partner
+      </button>
+
+      <div id="partnerPaymentsList" class="payments-list">
+        <div class="empty-state">
+          <div class="icon">💸</div>
+          <p>Chưa có thanh toán nào</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    .payment-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+      border-bottom: 2px solid var(--border-color);
+    }
+
+    .payment-tab {
+      flex: 1;
+      padding: 12px;
+      background: transparent;
+      border: none;
+      border-bottom: 3px solid transparent;
+      font-weight: 600;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .payment-tab.active {
+      color: var(--primary);
+      border-bottom-color: var(--primary);
+    }
+
+    .payment-tab-content {
+      display: none;
+    }
+
+    .payment-tab-content.active {
+      display: block;
+    }
+
+    .payment-summary {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 20px;
+      padding: 16px;
+      background: var(--bg-secondary);
+      border-radius: var(--radius-md);
+    }
+
+    .summary-item {
+      text-align: center;
+    }
+
+    .summary-item .label {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      margin-bottom: 4px;
+    }
+
+    .summary-item .value {
+      font-size: 1.125rem;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .summary-item .value.success {
+      color: var(--success);
+    }
+
+    .summary-item .value.danger {
+      color: var(--danger);
+    }
+
+    .payments-list {
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .payment-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px;
+      border-bottom: 1px solid var(--border-color);
+      background: var(--bg-primary);
+    }
+
+    .payment-item:hover {
+      background: var(--bg-secondary);
+    }
+
+    .payment-item .info {
+      flex: 1;
+    }
+
+    .payment-item .info .type {
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .payment-item .info .date {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+    }
+
+    .payment-item .info .method {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+    }
+
+    .payment-item .amount {
+      font-weight: 700;
+      color: var(--success);
+      margin: 0 12px;
+    }
+
+    .payment-item .delete-btn {
+      background: transparent;
+      border: none;
+      color: var(--danger);
+      cursor: pointer;
+      font-size: 1.25rem;
+      padding: 4px 8px;
+    }
+  </style>
+</script>
+
+<!-- Add Payment Form Template -->
+<script type="text/html" id="addPaymentFormTemplate">
+  <form id="paymentForm" onsubmit="submitPaymentForm(event)">
+    <input type="hidden" id="paymentJobId" name="jobId">
+    <input type="hidden" id="paymentFor" name="paymentFor">
+
+    <div class="form-group">
+      <label>Số tiền (VNĐ) *</label>
+      <input type="text" id="paymentAmount" name="amount" required 
+             placeholder="0" inputmode="numeric"
+             oninput="formatCurrencyInput(this)">
+    </div>
+
+    <div class="form-group">
+      <label>Loại thanh toán</label>
+      <select id="paymentType" name="paymentType">
+        <option value="Cọc">Cọc</option>
+        <option value="Đợt 1">Đợt 1</option>
+        <option value="Đợt 2">Đợt 2</option>
+        <option value="Đợt 3">Đợt 3</option>
+        <option value="Hoàn tất">Hoàn tất</option>
+        <option value="Khác">Khác</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label>Phương thức</label>
+      <select id="paymentMethod" name="paymentMethod">
+        <option value="Chuyển khoản">Chuyển khoản</option>
+        <option value="Tiền mặt">Tiền mặt</option>
+        <option value="Ví điện tử">Ví điện tử</option>
+        <option value="Khác">Khác</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label>Ngày thanh toán</label>
+      <input type="date" id="paymentDate" name="paymentDate">
+    </div>
+
+    <div class="form-group">
+      <label>Ghi chú</label>
+      <textarea id="paymentNotes" name="notes" rows="2" placeholder="Ghi chú thêm..."></textarea>
+    </div>
+
+    <div class="form-actions">
+      <button type="button" class="btn btn-secondary" onclick="closePaymentForm()">Hủy</button>
+      <button type="submit" class="btn btn-primary">💾 Lưu</button>
+    </div>
+  </form>
 </script>
