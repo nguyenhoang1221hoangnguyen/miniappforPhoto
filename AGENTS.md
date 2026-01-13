@@ -41,16 +41,17 @@ clasp open
 
 ```
 ├── Code.gs              # Entry point, menu, constants, utilities
-├── JobService.gs        # CRUD Jobs
+├── JobService.gs        # CRUD Jobs + Calendar integration
 ├── CustomerService.gs   # CRUD Customers
 ├── PartnerService.gs    # CRUD Partners
 ├── CalendarService.gs   # Google Calendar integration
+├── PaymentService.gs    # Payment tracking & history
 ├── ReportService.gs     # Reports (revenue, payment, customer, partner)
 ├── index.html           # Main HTML template
 ├── styles.html          # CSS styles
-├── components.html      # Form templates (job, customer, partner, detail)
-├── reports.html         # Report UI templates
-├── app.js.html          # Main JavaScript
+├── components.html      # Form templates (job, customer, partner, detail, payment)
+├── reports.html         # Report UI templates (4 loại báo cáo)
+├── app.js.html          # Main JavaScript (including payment & reports logic)
 ├── autocomplete.js.html # Autocomplete logic with preload
 └── sample_data/         # Sample CSV data (1000 jobs, 100 customers, 100 partners)
 ```
@@ -74,6 +75,13 @@ clasp open
 | JobService.gs | `searchJobs(filters, spreadsheetId)` | Tìm kiếm jobs |
 | CustomerService.gs | `searchCustomers(query, spreadsheetId)` | Tìm customers |
 | PartnerService.gs | `searchPartners(query, spreadsheetId)` | Tìm partners |
+| PaymentService.gs | `addPayment(data, spreadsheetId)` | Ghi nhận thanh toán |
+| PaymentService.gs | `getJobPaymentSummary(jobId, spreadsheetId)` | Lấy tổng hợp thanh toán |
+| PaymentService.gs | `deletePayment(paymentId, spreadsheetId)` | Xóa payment |
+| ReportService.gs | `getRevenueReport(period, spreadsheetId)` | Báo cáo doanh thu |
+| ReportService.gs | `getPaymentReport(status, period, spreadsheetId)` | Báo cáo thanh toán |
+| ReportService.gs | `getCustomerReport(customerId, spreadsheetId)` | Báo cáo khách hàng |
+| ReportService.gs | `getPartnerReport(partnerId, spreadsheetId)` | Báo cáo partner |
 
 ### Frontend (*.html)
 
@@ -83,6 +91,10 @@ clasp open
 | app.js.html | `loadJobs()`, `loadCustomers()`, `loadPartners()` | Load data |
 | app.js.html | `formatCurrencyInput(input)` | Format tiền với dấu phân cách |
 | app.js.html | `parseFormattedNumber(str)` | Parse số từ string có dấu phân cách |
+| app.js.html | `showPaymentHistory(jobId)` | Hiển thị modal lịch sử thanh toán |
+| app.js.html | `submitPaymentForm(event)` | Submit payment form |
+| app.js.html | `initReports()` | Khởi tạo Reports tab |
+| app.js.html | `loadRevenueReport(period)` | Load báo cáo doanh thu |
 | autocomplete.js.html | `preloadAutocompleteData()` | Preload customers & partners |
 | autocomplete.js.html | `handleCustomerInput(el)` | Xử lý autocomplete customer |
 
@@ -110,6 +122,18 @@ Tổng job, Tổng chi tiêu, Ghi chú, Ngày tạo, Đã xóa
 Partner_ID, Tên, SĐT, Email, Chuyên môn,
 Tổng job, Tổng lương, Ghi chú, Ngày tạo, Đã xóa
 ```
+
+### PaymentHistory Sheet (10 columns)
+```
+Payment_ID, Job_ID, Loại đối tượng (customer/partner), Số tiền,
+Loại thanh toán, Phương thức, Ngày thanh toán, Ghi chú,
+Ngày tạo, Đã xóa
+```
+
+**Notes:**
+- `Loại đối tượng`: 'customer' (thu từ khách) hoặc 'partner' (trả cho partner)
+- `Loại thanh toán`: Cọc, Đợt 1, Đợt 2, Đợt 3, Hoàn tất, Khác
+- `Phương thức`: Chuyển khoản, Tiền mặt, Ví điện tử, Khác
 
 ---
 
