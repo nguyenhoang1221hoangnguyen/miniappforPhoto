@@ -209,15 +209,18 @@ Tổng job, Tổng lương, Ghi chú, Ngày tạo, Đã xóa
 
 ### ⚠️ Hạn chế & Cần cải thiện
 
-#### 1. Thiếu PaymentService integration hoàn chỉnh trong UI
-- **PaymentService.gs** đã có đầy đủ logic nhưng **chưa có UI form**
-- Hiện tại payment tracking chỉ dùng fields `paidAmount` trong Jobs
-- **Cần**: Form thêm payment history (modal hoặc detail screen)
+#### 1. ✅ ~~Payment UI~~ - ĐÃ HOÀN THIỆN
+- ✅ Modal lịch sử thanh toán với 2 tabs (Thu từ khách / Trả Partner)
+- ✅ Form ghi nhận thanh toán (Loại, Phương thức, Ngày, Ghi chú)
+- ✅ Auto cập nhật stats trong Jobs sheet
+- ✅ Button "Thanh toán" trong Job Detail
 
-#### 2. Chưa có Reports UI
-- **ReportService.gs** đã có 6 functions báo cáo đầy đủ
-- **reports.html** có template nhưng **chưa được integrate**
-- **Cần**: Kết nối reports.html vào tab Reports
+#### 2. ✅ ~~Reports UI~~ - ĐÃ HOÀN THIỆN
+- ✅ Tab Reports đã integrate reports.html
+- ✅ 4 loại báo cáo: Revenue, Payment, Customer, Partner
+- ✅ Filters theo period (tuần/tháng/tất cả)
+- ✅ Top khách hàng với ranking (🥇🥈🥉)
+- ✅ Chart bars với gradient
 
 #### 3. Validation có thể cải thiện
 - Phone validation chỉ check 9-10 số, chưa check định dạng VN (0xxx)
@@ -251,30 +254,47 @@ Tổng job, Tổng lương, Ghi chú, Ngày tạo, Đã xóa
 | **Code Quality** | 9/10 | Rất tốt. Structure rõ ràng, error handling đầy đủ |
 | **Security** | 10/10 | Perfect với Execute as User |
 | **Performance** | 8/10 | Cache strategy tốt, có thể optimize query thêm |
-| **Features** | 8/10 | Đầy đủ core features, thiếu payment UI |
-| **UX/UI** | 8/10 | Mobile-first tốt, thiếu reports UI |
+| **Features** | 9/10 | Đầy đủ features, payment & reports đã hoàn thiện |
+| **UX/UI** | 9/10 | Mobile-first tốt, payment modal & reports UI đầy đủ |
 | **Scalability** | 7/10 | OK cho small teams, giới hạn GAS quota |
 | **Maintainability** | 9/10 | Code dễ đọc, dễ extend |
 
-### 🎯 Đánh giá tổng quan: **8.3/10**
+### 🎯 Đánh giá tổng quan: **8.7/10** ⬆️ (từ 8.3/10)
 
-Đây là **production-ready app** với chất lượng code rất tốt, bảo mật chặt chẽ, features đầy đủ cho use case quản lý job chụp hình nhỏ-vừa.
+Đây là **production-ready app** với chất lượng code rất tốt, bảo mật chặt chẽ, features **hoàn chỉnh** cho use case quản lý job chụp hình nhỏ-vừa.
 
 **Điểm nổi bật nhất**: 
 1. Security model (Execute as User)
 2. Error handling & caching
 3. Google Calendar integration
+4. **Payment tracking với history** (mới)
+5. **Reports đa chiều đầy đủ** (mới)
 
 **Cần ưu tiên fix**:
-1. Thêm Payment History UI
-2. Integrate Reports UI
-3. Add email reminders
+1. ~~Thêm Payment History UI~~ ✅ ĐÃ XONG
+2. ~~Integrate Reports UI~~ ✅ ĐÃ XONG
+3. Add email reminders (optional)
 
 ---
 
 ## 📅 Changelog
 
-### 2026-01-13
+### 2026-01-13 (Update 2)
+- ✅ **Hoàn thiện Payment UI**:
+  - Modal lịch sử thanh toán với 2 tabs (Thu từ khách / Trả Partner)
+  - Form ghi nhận thanh toán mới
+  - Hiển thị tổng tiền, đã thu/trả, còn lại
+  - Tính năng xóa payment
+  - Button "💰 Thanh toán" trong Job Detail
+- ✅ **Integrate Reports UI**:
+  - Tab Reports với 4 loại báo cáo
+  - Revenue Report: Doanh thu theo period, chart theo loại chụp
+  - Payment Report: Filter theo trạng thái thanh toán
+  - Customer Report: Top 10 khách hàng với ranking 🥇🥈🥉
+  - Partner Report: Thống kê lương theo partner
+- ⬆️ **Nâng điểm từ 8.3/10 → 8.7/10**
+
+### 2026-01-13 (Update 1)
 - ✅ Uploaded project to GitHub: https://github.com/nguyenhoang1221hoangnguyen/miniappforPhoto.git
 - ✅ Completed comprehensive app review
 - ✅ Added detailed evaluation to AGENTS.md
